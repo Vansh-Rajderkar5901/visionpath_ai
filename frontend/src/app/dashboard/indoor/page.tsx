@@ -78,6 +78,8 @@ export default function IndoorNavigationPage() {
       d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       d.building.toLowerCase().includes(searchQuery.toLowerCase())
   );
+  console.log("Search:", searchQuery);
+console.log("Filtered:", filteredDestinations);
 
   return (
     <div className="space-y-6">
@@ -155,17 +157,58 @@ export default function IndoorNavigationPage() {
         {/* Left Panel - Building & Floor Selection */}
         <div className="lg:col-span-1 space-y-4">
           {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="input-field pl-12"
-              placeholder="Search destinations..."
-              aria-label="Search destinations"
-            />
-          </div>
+          <div className="relative z-50">
+
+  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+
+  <input
+    type="text"
+    value={searchQuery}
+    onChange={(e) => setSearchQuery(e.target.value)}
+    className="input-field pl-12"
+    placeholder="Search destinations..."
+  />
+
+  {searchQuery.trim() !== "" && filteredDestinations && (
+    <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-dark-card rounded-xl shadow-2xl border border-gray-200 dark:border-dark-border max-h-72 overflow-y-auto">
+
+      {filteredDestinations.length > 0 ? (
+
+        filteredDestinations.map((dest) => (
+
+          <button
+            key={dest.id}
+            onClick={() => {
+              setSelectedDestination(dest);
+              setSearchQuery("");
+            }}
+            className="w-full text-left px-4 py-3 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition"
+          >
+
+              <div className="font-medium">
+                {dest.name}
+              </div>
+
+              <div className="text-xs text-gray-500">
+                {dest.building} • {dest.floor}
+              </div>
+
+          </button>
+
+        ))
+
+      ) : (
+
+        <div className="p-4 text-gray-500">
+          No destination found
+        </div>
+
+      )}
+
+    </div>
+  )}
+
+</div>
 
           {/* Buildings List */}
           <div className="bg-white dark:bg-dark-card rounded-2xl border border-gray-200 dark:border-dark-border overflow-hidden">
@@ -317,32 +360,6 @@ export default function IndoorNavigationPage() {
               </div>
             )}
           </div>
-
-          {/* Destination Selection & Navigation */}
-          {searchQuery && filteredDestinations && filteredDestinations.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white dark:bg-dark-card rounded-2xl border border-gray-200 dark:border-dark-border divide-y divide-gray-200 dark:divide-dark-border"
-            >
-              <div className="p-3 border-b border-gray-200 dark:border-dark-border">
-                <h3 className="text-sm font-semibold">Search Results</h3>
-              </div>
-              {filteredDestinations.map((dest) => (
-                <button
-                  key={dest.id}
-                  onClick={() => setSelectedDestination(dest)}
-                  className={cn(
-                    'w-full text-left p-3 hover:bg-gray-50 dark:hover:bg-dark-border transition-colors',
-                    selectedDestination?.id === dest.id && 'bg-primary-50 dark:bg-primary-900/20'
-                  )}
-                >
-                  <p className="font-medium text-sm">{dest.name}</p>
-                  <p className="text-xs text-gray-500">{dest.building} - {dest.floor}</p>
-                </button>
-              ))}
-            </motion.div>
-          )}
 
           {/* Navigate Button */}
           {selectedDestination && (
