@@ -11,7 +11,7 @@ load_dotenv()
 
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql://postgres:Admin123@localhost:5432/indoor_navigation_db"
+    "postgresql://postgres:Lekha@1234@localhost:5432/indoor_navigation_db"
 )
 
 engine = create_engine(
