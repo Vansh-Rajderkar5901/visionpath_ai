@@ -27,14 +27,6 @@ const MOCK_USERS: Record<string, { password: string; user: User }> = {
         audioFeedback: false,
         magnifierReady: false,
         continuousListening: false,
-        notifications: {
-          pushEnabled: true,
-          emailEnabled: true,
-          classReminders: true,
-          eventAlerts: true,
-          emergencyAlerts: true,
-          navigationReminders: true,
-        },
       },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -75,19 +67,10 @@ export const authService = {
         audioFeedback: false,
         magnifierReady: false,
         continuousListening: false,
-        notifications: {
-          pushEnabled: true,
-          emailEnabled: true,
-          classReminders: true,
-          eventAlerts: true,
-          emergencyAlerts: true,
-          navigationReminders: true,
-        },
       },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-
     MOCK_USERS[email] = { password, user: newUser };
     return newUser;
   },
@@ -117,14 +100,6 @@ export const authService = {
         audioFeedback: false,
         magnifierReady: false,
         continuousListening: false,
-        notifications: {
-          pushEnabled: true,
-          emailEnabled: true,
-          classReminders: true,
-          eventAlerts: true,
-          emergencyAlerts: true,
-          navigationReminders: true,
-        },
       },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -159,19 +134,10 @@ export const authService = {
         audioFeedback: false,
         magnifierReady: false,
         continuousListening: false,
-        notifications: {
-          pushEnabled: true,
-          emailEnabled: true,
-          classReminders: true,
-          eventAlerts: true,
-          emergencyAlerts: true,
-          navigationReminders: true,
-        },
       },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-    };
-  },
+    };  },
 
   async logout(): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 500));

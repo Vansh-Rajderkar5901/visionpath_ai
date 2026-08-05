@@ -259,7 +259,6 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       'scanner': '/dashboard/ocr',
       'emergency': '/dashboard/emergency',
       'settings': '/profile',
-      'notifications': '/dashboard/notifications',
     };
 
     const route = routes[page];

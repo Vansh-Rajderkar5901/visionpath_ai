@@ -29,14 +29,6 @@ const defaultPreferences: UserPreferences = {
   audioFeedback: false,
   magnifierReady: false,
   continuousListening: false,
-  notifications: {
-    pushEnabled: true,
-    emailEnabled: true,
-    classReminders: true,
-    eventAlerts: true,
-    emergencyAlerts: true,
-    navigationReminders: true,
-  },
 };
 
 const modeDefaults: Record<AccessibilityMode, Partial<UserPreferences>> = {
@@ -78,11 +70,12 @@ export function AccessibilityProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (user) {
-      setMode(user.accessibilityMode);
+      const userMode = (user.accessibilityMode as AccessibilityMode) ?? 'standard';
+      setMode(userMode);
       setPreferences({
         ...defaultPreferences,
-        ...modeDefaults[user.accessibilityMode],
-        ...user.preferences,
+        ...modeDefaults[userMode],
+        ...(user.preferences || {}),
       });
     }
   }, [user]);

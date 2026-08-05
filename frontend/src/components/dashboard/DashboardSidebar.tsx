@@ -11,7 +11,6 @@ import {
   Mic,
   Camera,
   AlertTriangle,
-  Bell,
   User,
   Settings,
   LogOut,
@@ -38,7 +37,6 @@ const navItems: NavItem[] = [
   { label: 'Voice Assistant', href: '/dashboard/voice', icon: Mic },
   { label: 'OCR Reader', href: '/dashboard/ocr', icon: Camera },
   { label: 'Emergency SOS', href: '/dashboard/emergency', icon: AlertTriangle, badge: 1 },
-  { label: 'Notifications', href: '/dashboard/notifications', icon: Bell },
   { label: 'Profile', href: '/dashboard/profile', icon: User },
 ];
 

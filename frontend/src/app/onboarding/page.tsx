@@ -51,14 +51,13 @@ const modes: {
   {
     id: 'standard',
     title: 'Standard Experience',
-    description: 'Modern dashboard with full navigation, maps, notifications, and premium UI. All accessibility features available on demand.',
+    description: 'Modern dashboard with full navigation, maps, and premium UI. All accessibility features available on demand.',
     icon: Monitor,
     color: 'from-primary-500 to-accent-500',
     features: [
       'Modern Dashboard',
       'Full Navigation',
       'Interactive Maps',
-      'Notifications Center',
       'Profile Management',
       'On-Demand Accessibility',
     ],

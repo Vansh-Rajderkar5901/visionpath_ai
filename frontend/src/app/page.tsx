@@ -472,10 +472,10 @@ const accessibilityModes = [
   },
   {
     title: 'Standard Experience',
-    description: 'Modern dashboard with full navigation, maps, notifications, and premium UI. All accessibility features available on demand.',
+    description: 'Modern dashboard with full navigation, maps, and premium UI. All accessibility features available on demand.',
     icon: Shield,
     color: 'from-primary-500 to-accent-500',
-    features: ['Modern Dashboard', 'Navigation', 'Maps', 'Notifications', 'Full Features'],
+    features: ['Modern Dashboard', 'Navigation', 'Maps', 'Full Features'],
   },
 ];
 
