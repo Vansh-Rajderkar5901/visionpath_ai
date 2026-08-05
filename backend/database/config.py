@@ -9,10 +9,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql://postgres:Lekha@1234@localhost:5432/indoor_navigation_db"
-)
+DATABASE_URL = "postgresql://postgres:Lekha%401234@localhost:5432/indoor_navigation_db"
 
 engine = create_engine(
     DATABASE_URL,
