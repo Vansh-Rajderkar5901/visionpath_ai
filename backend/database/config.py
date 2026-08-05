@@ -3,7 +3,6 @@ Database configuration and session management
 """
 
 import os
-from sqlalchemy import create_engine
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 from dotenv import load_dotenv
