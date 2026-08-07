@@ -36,15 +36,30 @@
       "static/chunks/main-app.js",
       "static/chunks/app/dashboard/profile/page.js"
     ],
+    "/dashboard/emergency/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/emergency/page.js"
+    ],
+    "/dashboard/ocr/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/ocr/page.js"
+    ],
+    "/dashboard/voice/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/voice/page.js"
+    ],
     "/dashboard/indoor/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/dashboard/indoor/page.js"
     ],
-    "/_not-found/page": [
+    "/dashboard/map/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/_not-found/page.js"
+      "static/chunks/app/dashboard/map/page.js"
     ]
   }
 }

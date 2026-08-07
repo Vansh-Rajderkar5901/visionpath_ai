@@ -1,18 +1,15 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import {
   Users,
   Building2,
   Map,
-  Bell,
   BarChart3,
   Shield,
   Upload,
-  Settings,
   ChevronRight,
-  TrendingUp,
   Activity,
   UserCheck,
   AlertTriangle,
@@ -32,7 +29,6 @@ const adminActions = [
   { label: 'Manage Buildings', icon: Building2, description: 'Add and configure campus buildings', href: '#' },
   { label: 'Floor Plans', icon: Map, description: 'Upload and manage floor plan maps', href: '#' },
   { label: 'Upload Maps', icon: Upload, description: 'Upload indoor navigation maps', href: '#' },
-  { label: 'Emergency Notifications', icon: Bell, description: 'Send emergency alerts to users', href: '#' },
   { label: 'Analytics', icon: BarChart3, description: 'View platform usage analytics', href: '#' },
 ];
 
@@ -130,7 +126,7 @@ export default function AdminPage() {
           {[
             { action: 'New user registered', time: '2 min ago', type: 'user' },
             { action: 'Building map updated: Engineering Block', time: '15 min ago', type: 'map' },
-            { action: 'Emergency drill notification sent', time: '1 hour ago', type: 'alert' },
+            { action: 'Emergency drill alert sent', time: '1 hour ago', type: 'alert' },
             { action: 'Floor plan uploaded: Science Block - Floor 2', time: '2 hours ago', type: 'upload' },
             { action: 'User reported issue with navigation', time: '3 hours ago', type: 'report' },
           ].map((activity, i) => (
@@ -160,4 +156,3 @@ export default function AdminPage() {
     </div>
   );
 }
-

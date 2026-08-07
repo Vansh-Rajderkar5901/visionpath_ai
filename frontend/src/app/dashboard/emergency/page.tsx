@@ -9,7 +9,6 @@ import {
   Users,
   Shield,
   Ambulance,
-  Bell,
   Share2,
   Loader2,
   CheckCircle,
@@ -254,4 +253,3 @@ export default function EmergencyPage() {
     </div>
   );
 }
-

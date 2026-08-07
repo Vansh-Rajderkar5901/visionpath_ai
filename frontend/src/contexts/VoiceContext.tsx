@@ -14,6 +14,29 @@ interface VoiceContextType extends VoiceAssistantState {
   processCommand: (text: string) => void;
 }
 
+// Minimal Web Speech API type declarations (not included in standard TS DOM libs)
+interface SpeechRecognitionEventLike {
+  results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }>;
+}
+
+interface SpeechRecognitionErrorEventLike {
+  error: string;
+}
+
+interface SpeechRecognitionLike {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onstart: (() => void) | null;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+}
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+
 const VoiceContext = createContext<VoiceContextType | undefined>(undefined);
 
 // Predefined command patterns
@@ -44,6 +67,13 @@ const commandResponses: Record<string, string> = {
   'cancel': 'Action cancelled. How can I help you?',
 };
 
+function getSpeechRecognitionConstructor(): SpeechRecognitionConstructor | null {
+  if (typeof window === 'undefined') return null;
+  const w = window as unknown as Record<string, unknown>;
+  const Ctor = w.SpeechRecognition || w.webkitSpeechRecognition;
+  return (Ctor as SpeechRecognitionConstructor) || null;
+}
+
 export function VoiceProvider({ children }: { children: ReactNode }) {
   const { preferences } = useAccessibility();
   const [state, setState] = useState<VoiceAssistantState>({
@@ -54,10 +84,10 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     continuousMode: false,
   });
 
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const synthesisRef = useRef<SpeechSynthesis | null>(null);
 
-  const isSupported = typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) && 'speechSynthesis' in window;
+  const isSupported = typeof window !== 'undefined' && !!getSpeechRecognitionConstructor() && 'speechSynthesis' in window;
 
   const startListening = useCallback(() => {
     if (!isSupported) {
@@ -65,13 +95,13 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
+    const SpeechRecognitionCtor = getSpeechRecognitionConstructor();
+    if (!SpeechRecognitionCtor) {
       toast.error('Voice recognition is not supported');
       return;
     }
 
-    const recognition = new SpeechRecognition();
+    const recognition = new SpeechRecognitionCtor();
     recognition.continuous = state.continuousMode;
     recognition.interimResults = true;
     recognition.lang = preferences.language || 'en-US';
@@ -80,19 +110,20 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       setState(prev => ({ ...prev, isListening: true }));
     };
 
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
+    recognition.onresult = (event) => {
       const transcript = Array.from(event.results)
         .map(result => result[0].transcript)
         .join('');
 
       setState(prev => ({ ...prev, transcript }));
 
-      if (event.results[event.results.length - 1].isFinal) {
+      const lastResult = event.results[event.results.length - 1];
+      if (lastResult && lastResult.isFinal) {
         processCommand(transcript);
       }
     };
 
-    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+    recognition.onerror = (event) => {
       console.error('Speech recognition error:', event.error);
       setState(prev => ({ ...prev, isListening: false }));
       toast.error('Voice recognition error: ' + event.error);
@@ -209,7 +240,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
 
         const response = commandResponses[intent] || 'Command received. Processing your request.';
         setState(prev => ({ ...prev, response }));
-        
+
         if (preferences.textToSpeech) {
           speak(response);
         }
@@ -259,7 +290,6 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       'scanner': '/dashboard/ocr',
       'emergency': '/dashboard/emergency',
       'settings': '/profile',
-      'notifications': '/dashboard/notifications',
     };
 
     const route = routes[page];
@@ -294,7 +324,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     - "Emergency"
     - "Help"
     - "Cancel"`;
-    
+
     toast.success('Help guide', { duration: 5000 });
     if (preferences.textToSpeech) {
       speak(helpText);
@@ -329,4 +359,3 @@ export function useVoice() {
   }
   return context;
 }
-

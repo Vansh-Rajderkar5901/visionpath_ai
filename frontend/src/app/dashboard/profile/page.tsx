@@ -3,18 +3,15 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import {
-  User,
   Mail,
   Shield,
   Eye,
   EyeOff,
   Monitor,
   Moon,
-  Sun,
   Volume2,
   Type,
   Contrast,
-  Bell,
   LogOut,
   ChevronRight,
   Palette,
@@ -24,7 +21,6 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useAccessibility } from '@/contexts/AccessibilityContext';
 import { cn } from '@/lib/utils';
-import toast from 'react-hot-toast';
 import type { AccessibilityMode } from '@/types';
 
 const modeConfig: Record<AccessibilityMode, { icon: React.ElementType; label: string; description: string }> = {
@@ -245,53 +241,6 @@ export default function ProfilePage() {
         </div>
       </motion.div>
 
-      {/* Notifications Preferences */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="p-4 rounded-2xl bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border"
-      >
-        <h2 className="font-semibold flex items-center gap-2 mb-4">
-          <Bell className="w-5 h-5 text-primary-500" />
-          Notification Preferences
-        </h2>
-        <div className="space-y-3">
-          <ToggleItem
-            label="Push Notifications"
-            icon={Bell}
-            checked={preferences.notifications.pushEnabled}
-            onChange={(v) => updatePreferences({
-              notifications: { ...preferences.notifications, pushEnabled: v }
-            })}
-          />
-          <ToggleItem
-            label="Email Notifications"
-            icon={Mail}
-            checked={preferences.notifications.emailEnabled}
-            onChange={(v) => updatePreferences({
-              notifications: { ...preferences.notifications, emailEnabled: v }
-            })}
-          />
-          <ToggleItem
-            label="Class Reminders"
-            icon={Bell}
-            checked={preferences.notifications.classReminders}
-            onChange={(v) => updatePreferences({
-              notifications: { ...preferences.notifications, classReminders: v }
-            })}
-          />
-          <ToggleItem
-            label="Emergency Alerts"
-            icon={AlertTriangle}
-            checked={preferences.notifications.emergencyAlerts}
-            onChange={(v) => updatePreferences({
-              notifications: { ...preferences.notifications, emergencyAlerts: v }
-            })}
-          />
-        </div>
-      </motion.div>
-
       {/* Logout */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -353,4 +302,3 @@ function ToggleItem({
     </div>
   );
 }
-
