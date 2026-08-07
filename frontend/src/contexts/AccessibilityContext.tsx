@@ -29,14 +29,6 @@ const defaultPreferences: UserPreferences = {
   audioFeedback: false,
   magnifierReady: false,
   continuousListening: false,
-  notifications: {
-    pushEnabled: true,
-    emailEnabled: true,
-    classReminders: true,
-    eventAlerts: true,
-    emergencyAlerts: true,
-    navigationReminders: true,
-  },
 };
 
 const modeDefaults: Record<AccessibilityMode, Partial<UserPreferences>> = {
@@ -173,4 +165,3 @@ export function useAccessibility() {
   }
   return context;
 }
-

@@ -33,16 +33,6 @@ export interface UserPreferences {
   audioFeedback: boolean;
   magnifierReady: boolean;
   continuousListening: boolean;
-  notifications: NotificationPreferences;
-}
-
-export interface NotificationPreferences {
-  pushEnabled: boolean;
-  emailEnabled: boolean;
-  classReminders: boolean;
-  eventAlerts: boolean;
-  emergencyAlerts: boolean;
-  navigationReminders: boolean;
 }
 
 export interface AuthState {
@@ -165,21 +155,6 @@ export interface GeoLocation {
 }
 
 // ============================================
-// Notification Types
-// ============================================
-
-export interface Notification {
-  id: string;
-  userId: string;
-  type: 'class' | 'event' | 'emergency' | 'navigation' | 'system';
-  title: string;
-  message: string;
-  read: boolean;
-  createdAt: string;
-  actionUrl?: string;
-}
-
-// ============================================
 // Voice Assistant Types
 // ============================================
 
@@ -216,7 +191,6 @@ export interface DashboardStats {
   totalNavigations: number;
   savedLocations: number;
   upcomingClasses: number;
-  unreadNotifications: number;
 }
 
 export interface UpcomingClass {

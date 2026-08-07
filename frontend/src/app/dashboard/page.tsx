@@ -10,7 +10,6 @@ import {
   Mic,
   Camera,
   AlertTriangle,
-  Bell,
   Compass,
   Clock,
   TrendingUp,
@@ -81,7 +80,6 @@ export default function DashboardPage() {
           { label: 'Navigations', value: stats?.totalNavigations || 0, icon: Compass, color: 'text-primary-600', bg: 'bg-primary-100 dark:bg-primary-900/30' },
           { label: 'Saved Places', value: stats?.savedLocations || 0, icon: MapPin, color: 'text-accent-600', bg: 'bg-accent-100 dark:bg-accent-900/30' },
           { label: 'Classes', value: stats?.upcomingClasses || 0, icon: Calendar, color: 'text-purple-600', bg: 'bg-purple-100 dark:bg-purple-900/30' },
-          { label: 'Notifications', value: stats?.unreadNotifications || 0, icon: Bell, color: 'text-orange-600', bg: 'bg-orange-100 dark:bg-orange-900/30' },
         ].map((stat, i) => (
           <div key={stat.label} className="p-4 rounded-2xl bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border">
             <div className="flex items-center justify-between mb-3">
@@ -241,4 +239,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
