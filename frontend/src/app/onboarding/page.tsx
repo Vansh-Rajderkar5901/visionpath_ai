@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Eye, EyeOff, Monitor, Check, ArrowRight, Loader2, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAccessibility } from '@/contexts/AccessibilityContext';
+import { useVoice } from '@/contexts/VoiceContext';
 import { AccessibilityMode } from '@/types';
 import toast from 'react-hot-toast';
 
@@ -67,16 +68,23 @@ description: 'Modern dashboard with full navigation, maps, and premium UI. All a
 export default function OnboardingPage() {
   const { setAccessibilityMode, isLoading } = useAuth();
   const { updateMode } = useAccessibility();
+  const { announce } = useVoice();
   const [selectedMode, setSelectedMode] = useState<AccessibilityMode | null>(null);
   const [step, setStep] = useState<'select' | 'confirm'>('select');
+
+  const modeLabel = (id: AccessibilityMode) =>
+    modes.find((m) => m.id === id)?.title || '';
 
   const handleSelect = async () => {
     if (!selectedMode) return;
     try {
+      announce(`Configuring your experience with ${modeLabel(selectedMode)} mode.`, { priority: 'assertive', force: true });
       await setAccessibilityMode(selectedMode);
       await updateMode(selectedMode);
+      announce('Your preferences have been saved. Taking you to your dashboard.', { priority: 'assertive', force: true });
       toast.success('Your preferences have been saved!');
     } catch (error) {
+      announce('Failed to save your preferences. Please try again.', { priority: 'assertive', force: true });
       toast.error('Failed to save preferences');
     }
   };
@@ -124,6 +132,7 @@ export default function OnboardingPage() {
                   onClick={() => {
                     setSelectedMode(mode.id);
                     setStep('confirm');
+                    announce(`${mode.title} selected. Review the details and confirm.`, { priority: 'assertive', force: true });
                   }}
                   className={`w-full text-left p-6 rounded-2xl border-2 transition-all duration-300 group ${
                     selectedMode === mode.id

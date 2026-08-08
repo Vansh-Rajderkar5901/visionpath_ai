@@ -818,7 +818,7 @@ const Footer = () => (
 // ============================================
 export default function LandingPage() {
   return (
-    <main>
+    <main id="main-content">
       <Navbar />
       <HeroSection />
       <FeaturesSection />
