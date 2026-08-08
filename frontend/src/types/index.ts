@@ -35,6 +35,25 @@ export interface UserPreferences {
   continuousListening: boolean;
 }
 
+/**
+ * Speech (text-to-speech) runtime settings used by the accessibility
+ * speech engine. These are independent of the user's persisted profile
+ * preferences so the user can quickly adjust them from the accessibility
+ * control panel without changing their saved profile.
+ */
+export interface SpeechSettings {
+  /** Master on/off switch for all speech announcements. */
+  enabled: boolean;
+  /** When true, no speech is produced. */
+  muted: boolean;
+  /** Volume from 0 to 1. */
+  volume: number;
+  /** Index into the browser's available voices list. */
+  selectedVoiceIndex: number;
+  /** The last text that was spoken (for "repeat last announcement"). */
+  lastSpoken: string;
+}
+
 export interface AuthState {
   user: User | null;
   isLoading: boolean;

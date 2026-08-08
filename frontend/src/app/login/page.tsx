@@ -5,10 +5,12 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { Eye, Mail, Lock, ArrowRight, EyeOff, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useVoice } from '@/contexts/VoiceContext';
 import toast from 'react-hot-toast';
 
 export default function LoginPage() {
   const { login, loginWithGoogle, isLoading } = useAuth();
+  const { announce } = useVoice();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
@@ -22,6 +24,11 @@ export default function LoginPage() {
     if (!password) newErrors.password = 'Password is required';
     else if (password.length < 6) newErrors.password = 'Password must be at least 6 characters';
     setErrors(newErrors);
+    // Announce the first validation error immediately.
+    const firstError = Object.values(newErrors).find(Boolean);
+    if (firstError) {
+      announce(firstError, { priority: 'assertive', force: true });
+    }
     return Object.keys(newErrors).length === 0;
   };
 
@@ -30,23 +37,28 @@ export default function LoginPage() {
     if (!validateForm()) return;
     try {
       await login(email, password, rememberMe);
+      announce('Login successful. Welcome back to VisionPath AI.', { priority: 'assertive', force: true });
       toast.success('Welcome back!');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Login failed');
+      const msg = error instanceof Error ? error.message : 'Login failed';
+      announce(`Login failed. ${msg}`, { priority: 'assertive', force: true });
+      toast.error(msg);
     }
   };
 
   const handleGoogleLogin = async () => {
     try {
       await loginWithGoogle();
+      announce('Google sign in successful. Welcome to VisionPath AI.', { priority: 'assertive', force: true });
       toast.success('Welcome!');
     } catch (error) {
+      announce('Google login failed. Please try again.', { priority: 'assertive', force: true });
       toast.error('Google login failed');
     }
   };
 
   return (
-    <div className="min-h-screen flex">
+    <main id="main-content" className="min-h-screen flex">
       {/* Left - Form */}
       <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 bg-white dark:bg-dark-bg">
         <motion.div
@@ -209,12 +221,12 @@ export default function LoginPage() {
             <Eye className="w-10 h-10" />
           </div>
           <h2 className="text-3xl font-bold mb-4">Navigate Without Limits</h2>
-          <p className="text-white/80 text-lg leading-relaxed">
+<p className="text-white/80 text-lg leading-relaxed">
             AI-powered indoor navigation and accessibility platform. Voice guidance, OCR reader, and more.
           </p>
         </div>
       </div>
-    </div>
+    </main>
   );
 }
 

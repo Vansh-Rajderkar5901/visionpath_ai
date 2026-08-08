@@ -5,10 +5,12 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { Eye, Mail, Lock, User, ArrowRight, EyeOff, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useVoice } from '@/contexts/VoiceContext';
 import toast from 'react-hot-toast';
 
 export default function RegisterPage() {
   const { register, loginWithGoogle, isLoading } = useAuth();
+  const { announce } = useVoice();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -28,6 +30,11 @@ export default function RegisterPage() {
     }
     if (password !== confirmPassword) newErrors.confirmPassword = 'Passwords do not match';
     setErrors(newErrors);
+    // Announce the first validation error immediately.
+    const firstError = Object.values(newErrors).find(Boolean);
+    if (firstError) {
+      announce(firstError, { priority: 'assertive', force: true });
+    }
     return Object.keys(newErrors).length === 0;
   };
 
@@ -36,9 +43,12 @@ export default function RegisterPage() {
     if (!validateForm()) return;
     try {
       await register(name, email, password);
+      announce('Account created successfully. Welcome to VisionPath AI.', { priority: 'assertive', force: true });
       toast.success('Account created successfully!');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Registration failed');
+      const msg = error instanceof Error ? error.message : 'Registration failed';
+      announce(`Registration failed. ${msg}`, { priority: 'assertive', force: true });
+      toast.error(msg);
     }
   };
 

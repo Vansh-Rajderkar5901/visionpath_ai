@@ -23,7 +23,7 @@ type OCRStatus = 'idle' | 'processing' | 'complete' | 'error';
 
 export default function OCRPage() {
   const { preferences } = useAccessibility();
-  const { speak } = useVoice();
+  const { speak, announce } = useVoice();
   const [image, setImage] = useState<string | null>(null);
   const [status, setStatus] = useState<OCRStatus>('idle');
   const [extractedText, setExtractedText] = useState('');
@@ -56,8 +56,9 @@ export default function OCRPage() {
     reader.readAsDataURL(file);
   };
 
-  const processOCR = async () => {
+const processOCR = async () => {
     setStatus('processing');
+    announce('Uploading and processing image. Extracting text.', { priority: 'assertive', force: true });
     // Simulate OCR processing
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
@@ -86,6 +87,7 @@ Accessibility Features:
 
     setExtractedText(mockText);
     setStatus('complete');
+    announce(`Text extracted successfully. ${mockText.length} characters found.`, { priority: 'assertive', force: true });
     toast.success('Text extracted successfully!');
   };
 
