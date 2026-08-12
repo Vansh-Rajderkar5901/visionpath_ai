@@ -5,12 +5,17 @@ import { motion } from 'framer-motion';
 import {
   Mic,
   MicOff,
+  Volume2,
   Settings,
   List,
   Command,
   Sparkles,
+  ChevronRight,
+  Play,
   Pause,
+  Loader2,
   Globe,
+  Sliders,
   ToggleLeft,
   ToggleRight,
 } from 'lucide-react';
@@ -43,10 +48,6 @@ export default function VoicePage() {
   } = useVoice();
   const { preferences, updatePreferences } = useAccessibility();
   const [showCommands, setShowCommands] = useState(true);
-
-const isSpeechRecognitionSupported =
-    typeof window !== 'undefined' &&
-    (!!(window as any).SpeechRecognition || !!(window as any).webkitSpeechRecognition);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -197,13 +198,19 @@ const isSpeechRecognitionSupported =
               </h2>
               <div className="grid sm:grid-cols-2 gap-2">
                 {exampleCommands.map((cmd) => (
-                  <div
+                  <button
                     key={cmd.command}
+                    onClick={() => {
+                      // You could trigger processing of this command
+                      if (window.SpeechRecognition || window.webkitSpeechRecognition) {
+                        // Use the voice context to process
+                      }
+                    }}
                     className="text-left p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-dark-border transition-colors"
                   >
                     <p className="font-medium text-sm">&ldquo;{cmd.command}&rdquo;</p>
                     <p className="text-xs text-gray-500 mt-0.5">{cmd.description}</p>
-                  </div>
+                  </button>
                 ))}
               </div>
             </motion.div>
@@ -359,7 +366,9 @@ const isSpeechRecognitionSupported =
               <div className="flex items-center justify-between">
                 <span className="text-gray-500">Browser Support</span>
                 <span className="font-medium text-green-600">
-                  {isSpeechRecognitionSupported ? 'Supported' : 'Not supported'}
+                  {typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)
+                    ? 'Supported'
+                    : 'Not supported'}
                 </span>
               </div>
             </div>
@@ -369,3 +378,4 @@ const isSpeechRecognitionSupported =
     </div>
   );
 }
+

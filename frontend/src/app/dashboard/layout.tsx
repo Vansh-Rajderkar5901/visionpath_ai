@@ -9,10 +9,10 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-return (
+  return (
     <div className="min-h-screen bg-gray-50 dark:bg-dark-bg">
       <DashboardSidebar />
-      <main id="main-content" className="lg:pl-[280px] min-h-screen transition-all duration-300">
+      <main className="lg:pl-[280px] min-h-screen transition-all duration-300">
         <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
           {children}
         </div>

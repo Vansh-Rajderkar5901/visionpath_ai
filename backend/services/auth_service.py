@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
-from models.user import User
+from models.user import User, UserPreferences, NotificationPreference, AccessibilityMode, UserRole
 
 load_dotenv()
 
@@ -32,36 +32,35 @@ class AuthService:
     def __init__(self, db: Session):
         self.db = db
 
-    def create_user(
-    self,
-    username: str,
-    full_name: str,
-    email: str,
-    phone_number: str,
-    password: str,
-) -> User:
+    def create_user(self, name: str, email: str, password: str) -> User:
         """Create a new user with default preferences"""
         existing = self.db.query(User).filter(User.email == email).first()
         if existing:
             raise ValueError("Email already registered")
 
         user = User(
-          username=username,
-          full_name=full_name,
-          email=email,
-          phone_number=phone_number,
-          password_hash=self.hash_password(password),
-          role_id=2,                 # Default USER role
-          is_visually_impaired=False,
-          account_status="ACTIVE",
-          created_at=datetime.utcnow(),
-)
+            id=uuid.uuid4(),
+            email=email,
+            name=name,
+            password_hash=self.hash_password(password),
+            role=UserRole.USER,
+            accessibility_mode=AccessibilityMode.STANDARD,
+        )
         self.db.add(user)
+        self.db.flush()
+
+        # Create default preferences
+        prefs = UserPreferences(user_id=user.id)
+        self.db.add(prefs)
+        self.db.flush()
+
+        notif_prefs = NotificationPreference(preferences_id=prefs.id)
+        self.db.add(notif_prefs)
 
         self.db.commit()
         self.db.refresh(user)
-
         return user
+
     def authenticate_user(self, email: str, password: str) -> Optional[User]:
         """Authenticate user with email and password"""
         user = self.db.query(User).filter(User.email == email).first()

@@ -64,23 +64,10 @@
     }
   }
 
-/* Focus Visible - robust, high-contrast focus indicator for keyboard users */
+  /* Focus Visible */
   *:focus-visible {
     @apply outline-2 outline-offset-2 outline-primary-500;
     outline-style: solid;
-  }
-
-  .focus-ring {
-    outline: 3px solid #6366f1 !important;
-    outline-offset: 2px;
-    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.35) !important;
-  }
-
-  .high-contrast *:focus-visible,
-  .high-contrast .focus-ring {
-    outline: 3px solid #ffff00 !important;
-    outline-offset: 2px;
-    box-shadow: 0 0 0 4px rgba(255, 255, 0, 0.4) !important;
   }
 
   /* Screen Reader Only */

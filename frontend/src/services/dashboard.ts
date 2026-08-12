@@ -1,10 +1,11 @@
-import { DashboardStats, UpcomingClass, RecentLocation } from '@/types';
+import { DashboardStats, UpcomingClass, RecentLocation, Notification } from '@/types';
 
 // Mock data for development
 const mockStats: DashboardStats = {
   totalNavigations: 47,
   savedLocations: 12,
   upcomingClasses: 3,
+  unreadNotifications: 5,
 };
 
 const mockUpcomingClasses: UpcomingClass[] = [
@@ -75,6 +76,56 @@ const mockRecentLocations: RecentLocation[] = [
   },
 ];
 
+const mockNotifications: Notification[] = [
+  {
+    id: 'notif-1',
+    userId: 'user-1',
+    type: 'class',
+    title: 'Upcoming Class',
+    message: 'Computer Science 101 starts in 30 minutes in Lab 204',
+    read: false,
+    createdAt: '2024-11-20T08:30:00',
+    actionUrl: '/dashboard/map?destination=Lab204',
+  },
+  {
+    id: 'notif-2',
+    userId: 'user-1',
+    type: 'event',
+    title: 'Tech Workshop',
+    message: 'AI & Accessibility Workshop tomorrow at 2 PM in Auditorium',
+    read: false,
+    createdAt: '2024-11-19T16:00:00',
+    actionUrl: '/dashboard/events',
+  },
+  {
+    id: 'notif-3',
+    userId: 'user-1',
+    type: 'navigation',
+    title: 'Navigation Reminder',
+    message: 'Your saved route to Library is frequently used at this time',
+    read: true,
+    createdAt: '2024-11-19T14:00:00',
+  },
+  {
+    id: 'notif-4',
+    userId: 'user-1',
+    type: 'system',
+    title: 'Profile Updated',
+    message: 'Your accessibility preferences have been saved successfully',
+    read: true,
+    createdAt: '2024-11-18T10:00:00',
+  },
+  {
+    id: 'notif-5',
+    userId: 'user-1',
+    type: 'emergency',
+    title: 'Emergency Drill',
+    message: 'Scheduled emergency evacuation drill at 3 PM today',
+    read: false,
+    createdAt: '2024-11-20T07:00:00',
+  },
+];
+
 export const dashboardService = {
   async getStats(): Promise<DashboardStats> {
     await new Promise((resolve) => setTimeout(resolve, 500));
@@ -90,4 +141,23 @@ export const dashboardService = {
     await new Promise((resolve) => setTimeout(resolve, 500));
     return mockRecentLocations;
   },
+
+  async getNotifications(): Promise<Notification[]> {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    return mockNotifications;
+  },
+
+  async markNotificationRead(notificationId: string): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    const notification = mockNotifications.find((n) => n.id === notificationId);
+    if (notification) {
+      notification.read = true;
+    }
+  },
+
+  async markAllNotificationsRead(): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    mockNotifications.forEach((n) => (n.read = true));
+  },
 };
+
