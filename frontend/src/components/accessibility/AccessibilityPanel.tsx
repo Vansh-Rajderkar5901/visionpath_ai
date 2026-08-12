@@ -96,9 +96,23 @@ export function AccessibilityPanel() {
     repeatLast();
   };
 
+  // The slider moves continuously but each save is an API call, so track the
+  // value locally and persist once the user settles on it.
+  const [speedDraft, setSpeedDraft] = useState<number | null>(null);
+  const displayedSpeed = speedDraft ?? preferences.voiceSpeed ?? 1;
+
   const handleSpeed = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = parseFloat(e.target.value);
-    updatePreferences({ voiceSpeed: val });
+    setSpeedDraft(parseFloat(e.target.value));
+  };
+
+  const commitSpeed = () => {
+    if (speedDraft === null || speedDraft === preferences.voiceSpeed) {
+      setSpeedDraft(null);
+      return;
+    }
+    updatePreferences({ voiceSpeed: speedDraft })
+      .catch(() => announce('Could not save the speech speed.', { force: true }))
+      .finally(() => setSpeedDraft(null));
   };
 
   const handleVolume = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -231,15 +245,18 @@ export function AccessibilityPanel() {
                 <div>
                   <label className="text-sm text-gray-500 mb-1 block flex items-center gap-2">
                     <Gauge className="w-4 h-4" />
-                    Speech Speed: {preferences.voiceSpeed?.toFixed(2)}x
+                    Speech Speed: {displayedSpeed.toFixed(2)}x
                   </label>
                   <input
                     type="range"
                     min="0.5"
                     max="2"
                     step="0.25"
-                    value={preferences.voiceSpeed || 1}
+                    value={displayedSpeed}
                     onChange={handleSpeed}
+                    onPointerUp={commitSpeed}
+                    onBlur={commitSpeed}
+                    onKeyUp={commitSpeed}
                     className="w-full accent-primary-500"
                     aria-label="Speech speed"
                   />

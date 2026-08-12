@@ -18,10 +18,11 @@ import {
   Globe,
   Headphones,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAccessibility } from '@/contexts/AccessibilityContext';
 import { cn } from '@/lib/utils';
-import type { AccessibilityMode } from '@/types';
+import type { AccessibilityMode, UserPreferences } from '@/types';
 
 const modeConfig: Record<AccessibilityMode, { icon: React.ElementType; label: string; description: string }> = {
   'visually-impaired': { icon: EyeOff, label: 'Visually Impaired', description: 'Screen reader, voice navigation, high contrast' },
@@ -31,9 +32,25 @@ const modeConfig: Record<AccessibilityMode, { icon: React.ElementType; label: st
 
 export default function ProfilePage() {
   const { user, logout } = useAuth();
-  const { mode, preferences, updatePreferences, updateMode } = useAccessibility();
+  const { mode, preferences, updatePreferences, updateMode, isSaving } = useAccessibility();
 
   const currentMode = modeConfig[mode];
+
+  // Preference writes hit the API, so a failure has to surface rather than
+  // leaving the UI showing a setting that was never saved.
+  const savePreference = (patch: Partial<UserPreferences>) => {
+    updatePreferences(patch).catch((error: unknown) => {
+      toast.error(error instanceof Error ? error.message : 'Could not save that setting');
+    });
+  };
+
+  const saveMode = (nextMode: AccessibilityMode) => {
+    updateMode(nextMode)
+      .then(() => toast.success('Accessibility mode updated'))
+      .catch((error: unknown) => {
+        toast.error(error instanceof Error ? error.message : 'Could not change the mode');
+      });
+  };
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -97,7 +114,7 @@ export default function ProfilePage() {
           {(Object.entries(modeConfig) as [AccessibilityMode, typeof modeConfig['standard']][]).map(([key, config]) => (
             <button
               key={key}
-              onClick={() => updateMode(key)}
+              onClick={() => saveMode(key)}
               className={cn(
                 'flex items-center gap-4 p-3 rounded-xl transition-all',
                 mode === key
@@ -142,6 +159,11 @@ export default function ProfilePage() {
         <h2 className="font-semibold flex items-center gap-2 mb-4">
           <Palette className="w-5 h-5 text-primary-500" />
           Preferences
+          {isSaving && (
+            <span className="text-xs font-normal text-gray-400 ml-auto" role="status">
+              Saving...
+            </span>
+          )}
         </h2>
         <div className="space-y-4">
           {/* Theme */}
@@ -154,7 +176,7 @@ export default function ProfilePage() {
               {(['system', 'light', 'dark'] as const).map((theme) => (
                 <button
                   key={theme}
-                  onClick={() => updatePreferences({ theme })}
+                  onClick={() => savePreference({ theme })}
                   className={cn(
                     'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
                     preferences.theme === theme
@@ -178,7 +200,7 @@ export default function ProfilePage() {
               {(['normal', 'large', 'x-large'] as const).map((size) => (
                 <button
                   key={size}
-                  onClick={() => updatePreferences({ fontSize: size })}
+                  onClick={() => savePreference({ fontSize: size })}
                   className={cn(
                     'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
                     preferences.fontSize === size
@@ -200,7 +222,7 @@ export default function ProfilePage() {
             </div>
             <select
               value={preferences.language}
-              onChange={(e) => updatePreferences({ language: e.target.value })}
+              onChange={(e) => savePreference({ language: e.target.value })}
               className="text-sm bg-transparent border border-gray-200 dark:border-dark-border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-500"
             >
               <option value="en">English</option>
@@ -217,25 +239,25 @@ export default function ProfilePage() {
               label="High Contrast"
               icon={Contrast}
               checked={preferences.highContrast}
-              onChange={(v) => updatePreferences({ highContrast: v })}
+              onChange={(v) => savePreference({ highContrast: v })}
             />
             <ToggleItem
               label="Reduced Motion"
               icon={Monitor}
               checked={preferences.reducedMotion}
-              onChange={(v) => updatePreferences({ reducedMotion: v })}
+              onChange={(v) => savePreference({ reducedMotion: v })}
             />
             <ToggleItem
               label="Voice Navigation"
               icon={Volume2}
               checked={preferences.voiceNavigation}
-              onChange={(v) => updatePreferences({ voiceNavigation: v })}
+              onChange={(v) => savePreference({ voiceNavigation: v })}
             />
             <ToggleItem
               label="Large Touch Targets"
               icon={Headphones}
               checked={preferences.largeTouchTargets}
-              onChange={(v) => updatePreferences({ largeTouchTargets: v })}
+              onChange={(v) => savePreference({ largeTouchTargets: v })}
             />
           </div>
         </div>

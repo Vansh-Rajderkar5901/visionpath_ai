@@ -69,10 +69,6 @@ export const routeAnnouncements: Record<string, RouteAnnouncement> = {
     title: 'You are on the Admin Panel.',
     purpose: 'This page allows administrators to manage users, buildings, maps, and platform analytics.',
   },
-  '/dashboard/test': {
-    title: 'You are on the Navigation Test page.',
-    purpose: 'This page demonstrates the indoor navigation algorithm and routing instructions.',
-  },
   '*': {
     title: 'Welcome to VisionPath AI.',
     purpose: 'Use the navigation menu to move between pages, or press Tab to explore the available controls.',

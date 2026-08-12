@@ -1,215 +1,158 @@
-"""
-Authentication Service
-"""
+"""Registration, login, and password reset."""
 
-import os
-import uuid
-from datetime import datetime, timedelta
+import re
+from datetime import datetime
 from typing import Optional
-from jose import JWTError, jwt
-from passlib.context import CryptContext
+
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
-from dotenv import load_dotenv
 
-from models.user import User
+from core.security import (
+    TOKEN_TYPE_ACCESS,
+    TOKEN_TYPE_RESET,
+    create_token,
+    decode_token,
+    hash_password,
+    verify_password,
+)
+from models.emergency import EmergencyContact
+from models.user import (
+    ACCOUNT_ACTIVE,
+    DEFAULT_ACCESSIBILITY_MODE,
+    ROLE_USER,
+    User,
+    UserPreference,
+)
+from services.preference_service import apply_mode_defaults
 
-load_dotenv()
-
-SECRET_KEY = os.getenv("SECRET_KEY", "your-super-secret-key-change-in-production")
-ALGORITHM = os.getenv("ALGORITHM", "HS256")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# (name, phone, relationship, is_primary)
+DEFAULT_EMERGENCY_CONTACTS = (
+    ("Campus Security", "1999", "Security", True),
+    ("Medical Emergency", "1998", "Medical", False),
+)
 
 
-class TokenData(BaseModel):
-    sub: str
-    exp: Optional[datetime] = None
+class AuthError(Exception):
+    """Raised for expected auth failures; routers turn these into 4xx responses."""
 
 
 class AuthService:
     def __init__(self, db: Session):
         self.db = db
 
+    # ---------- helpers ----------
+
+    def _unique_username(self, email: str, full_name: str) -> str:
+        base = re.sub(r"[^a-z0-9_.]", "", email.split("@")[0].lower()) or "user"
+        base = base[:40]
+        candidate = base
+        suffix = 1
+        while self.db.query(User).filter(User.username == candidate).first():
+            suffix += 1
+            candidate = f"{base}{suffix}"
+        return candidate
+
+    def get_by_email(self, email: str) -> Optional[User]:
+        return self.db.query(User).filter(User.email == email.lower()).first()
+
+    def get_by_id(self, user_id: int | str) -> Optional[User]:
+        try:
+            return self.db.get(User, int(user_id))
+        except (TypeError, ValueError):
+            return None
+
+    # ---------- registration & login ----------
+
     def create_user(
-    self,
-    username: str,
-    full_name: str,
-    email: str,
-    phone_number: str,
-    password: str,
-) -> User:
-        """Create a new user with default preferences"""
-        existing = self.db.query(User).filter(User.email == email).first()
-        if existing:
-            raise ValueError("Email already registered")
+        self,
+        name: str,
+        email: str,
+        password: str,
+        phone_number: Optional[str] = None,
+        role_id: int = ROLE_USER,
+        accessibility_mode: str = DEFAULT_ACCESSIBILITY_MODE,
+    ) -> User:
+        email = email.lower().strip()
+        if self.get_by_email(email):
+            raise AuthError("An account with this email already exists")
 
         user = User(
-          username=username,
-          full_name=full_name,
-          email=email,
-          phone_number=phone_number,
-          password_hash=self.hash_password(password),
-          role_id=2,                 # Default USER role
-          is_visually_impaired=False,
-          account_status="ACTIVE",
-          created_at=datetime.utcnow(),
-)
+            username=self._unique_username(email, name),
+            full_name=name.strip(),
+            email=email,
+            phone_number=phone_number,
+            password_hash=hash_password(password),
+            role_id=role_id,
+            accessibility_mode=accessibility_mode,
+            is_visually_impaired=accessibility_mode == "visually-impaired",
+            account_status=ACCOUNT_ACTIVE,
+        )
         self.db.add(user)
+        self.db.flush()  # assigns user.user_id
+
+        preferences = UserPreference(user_id=user.user_id)
+        apply_mode_defaults(preferences, accessibility_mode)
+        self.db.add(preferences)
+
+        # Every account starts with the campus emergency numbers so the SOS
+        # screen is useful before the user adds anyone of their own.
+        for name, phone, relation, primary in DEFAULT_EMERGENCY_CONTACTS:
+            self.db.add(
+                EmergencyContact(
+                    user_id=user.user_id,
+                    name=name,
+                    phone=phone,
+                    relation=relation,
+                    is_primary=primary,
+                )
+            )
 
         self.db.commit()
         self.db.refresh(user)
-
-        return user
-    def authenticate_user(self, email: str, password: str) -> Optional[User]:
-        """Authenticate user with email and password"""
-        user = self.db.query(User).filter(User.email == email).first()
-        if not user:
-            return None
-        if not self.verify_password(password, user.password_hash):
-            return None
         return user
 
-    def authenticate_with_google(self, firebase_token: str) -> User:
-        """Authenticate with Google Firebase token"""
-        try:
-            # Verify Firebase token (simplified for now)
-            # In production, use firebase_admin.auth.verify_id_token(token)
-            import firebase_admin
-            from firebase_admin import auth as firebase_auth
+    def authenticate(self, email: str, password: str) -> User:
+        user = self.get_by_email(email)
+        # Always run a verify to keep the timing similar for unknown emails.
+        if not verify_password(password, user.password_hash if user else None):
+            raise AuthError("Invalid email or password")
+        if user.account_status != ACCOUNT_ACTIVE:
+            raise AuthError("This account has been suspended")
 
-            if not firebase_admin._apps:
-                cred_path = os.getenv("FIREBASE_CREDENTIALS_PATH", "./firebase-credentials.json")
-                cred = firebase_admin.credentials.Certificate(cred_path)
-                firebase_admin.initialize_app(cred)
-
-            decoded_token = firebase_auth.verify_id_token(firebase_token)
-            firebase_uid = decoded_token.get("uid")
-            email = decoded_token.get("email", "")
-            name = decoded_token.get("name", email.split("@")[0])
-
-            # Check if user exists
-            user = self.db.query(User).filter(
-                (User.firebase_uid == firebase_uid) | (User.email == email)
-            ).first()
-
-            if not user:
-                user = User(
-                    id=uuid.uuid4(),
-                    email=email,
-                    name=name,
-                    password_hash="",
-                    firebase_uid=firebase_uid,
-                    photo_url=decoded_token.get("picture"),
-                )
-                self.db.add(user)
-                self.db.flush()
-
-                prefs = UserPreferences(user_id=user.id)
-                self.db.add(prefs)
-                self.db.flush()
-                self.db.add(NotificationPreference(preferences_id=prefs.id))
-                self.db.commit()
-                self.db.refresh(user)
-
-            return user
-
-        except Exception as e:
-            raise ValueError(f"Google authentication failed: {str(e)}")
-
-    def get_user_by_id(self, user_id: str) -> Optional[User]:
-        """Get user by ID"""
-        try:
-            uid = uuid.UUID(user_id)
-            return self.db.query(User).filter(User.id == uid).first()
-        except ValueError:
-            return None
-
-    def update_user_mode(self, user_id: str, mode: str) -> User:
-        """Update user accessibility mode"""
-        user = self.get_user_by_id(user_id)
-        if not user:
-            raise ValueError("User not found")
-
-        try:
-            user.accessibility_mode = AccessibilityMode(mode)
-            self.db.commit()
-            self.db.refresh(user)
-            return user
-        except ValueError:
-            raise ValueError(f"Invalid accessibility mode: {mode}")
-
-    def update_user_preferences(self, user_id: str, preferences: dict) -> UserPreferences:
-        """Update user preferences"""
-        user = self.get_user_by_id(user_id)
-        if not user:
-            raise ValueError("User not found")
-
-        prefs = self.db.query(UserPreferences).filter(
-            UserPreferences.user_id == user.id
-        ).first()
-
-        if not prefs:
-            prefs = UserPreferences(user_id=user.id)
-            self.db.add(prefs)
-            self.db.flush()
-
-        for key, value in preferences.items():
-            if hasattr(prefs, key):
-                setattr(prefs, key, value)
-
+        user.last_login = datetime.utcnow()
         self.db.commit()
-        self.db.refresh(prefs)
-        return prefs
+        self.db.refresh(user)
+        return user
 
-    def initiate_password_reset(self, email: str):
-        """Initiate password reset process"""
-        user = self.db.query(User).filter(User.email == email).first()
+    def issue_access_token(self, user: User) -> str:
+        return create_token(user.user_id, TOKEN_TYPE_ACCESS)
+
+    # ---------- password reset ----------
+
+    def create_reset_token(self, email: str) -> Optional[str]:
+        """Returns a token, or None when no such account exists."""
+        user = self.get_by_email(email)
         if not user:
-            return  # Don't reveal if email exists
-
-        # In production, send email with reset token
-        reset_token = self.create_access_token(
-            data={"sub": str(user.id), "type": "reset"},
-            expires_delta=timedelta(hours=1),
-        )
-        # Send email logic here
-        return reset_token
-
-    def reset_password(self, token: str, new_password: str):
-        """Reset user password"""
-        payload = self.decode_token(token)
-        if not payload or payload.get("type") != "reset":
-            raise ValueError("Invalid or expired reset token")
-
-        user = self.get_user_by_id(payload["sub"])
-        if not user:
-            raise ValueError("User not found")
-
-        user.password_hash = self.hash_password(new_password)
-        self.db.commit()
-
-    def hash_password(self, password: str) -> str:
-        """Hash password using bcrypt"""
-        return pwd_context.hash(password)
-
-    def verify_password(self, plain_password: str, hashed_password: str) -> bool:
-        """Verify password against hash"""
-        return pwd_context.verify(plain_password, hashed_password)
-
-    def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> str:
-        """Create JWT access token"""
-        to_encode = data.copy()
-        expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
-        to_encode.update({"exp": expire})
-        return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-
-    def decode_token(self, token: str) -> Optional[dict]:
-        """Decode JWT token"""
-        try:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-            return payload
-        except JWTError:
             return None
+        return create_token(user.user_id, TOKEN_TYPE_RESET)
 
+    def reset_password(self, token: str, new_password: str) -> User:
+        payload = decode_token(token, expected_type=TOKEN_TYPE_RESET)
+        if payload is None:
+            raise AuthError("This reset link is invalid or has expired")
+
+        user = self.get_by_id(payload["sub"])
+        if not user:
+            raise AuthError("This reset link is invalid or has expired")
+
+        user.password_hash = hash_password(new_password)
+        self.db.commit()
+        self.db.refresh(user)
+        return user
+
+    def change_password(self, user: User, current_password: str, new_password: str) -> User:
+        if not verify_password(current_password, user.password_hash):
+            raise AuthError("Your current password is incorrect")
+        user.password_hash = hash_password(new_password)
+        self.db.commit()
+        self.db.refresh(user)
+        return user

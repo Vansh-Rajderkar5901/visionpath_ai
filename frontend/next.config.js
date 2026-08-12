@@ -1,18 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'firebasestorage.googleapis.com',
-      },
-      {
-        protocol: 'https',
-        hostname: 'lh3.googleusercontent.com',
-      },
-    ],
-  },
+  reactStrictMode: true,
+  // All images are served from the app itself or as local blob previews, so no
+  // remote image hosts need allow-listing.
 };
 
 module.exports = nextConfig;
-

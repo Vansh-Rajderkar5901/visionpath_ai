@@ -27,6 +27,40 @@ export function formatDateTime(date: Date | string): string {
   return `${formatDate(d)} at ${formatTime(d)}`;
 }
 
+/**
+ * Format a clock time that may arrive either as a full timestamp or as the
+ * bare "HH:MM:SS" the class timetable returns (a SQL TIME column has no date).
+ */
+export function formatClockTime(value: string | null | undefined): string {
+  if (!value) return '';
+
+  const timeOnly = /^(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(value);
+  if (timeOnly) {
+    const hours = Number(timeOnly[1]);
+    const minutes = timeOnly[2];
+    const suffix = hours >= 12 ? 'PM' : 'AM';
+    const hour12 = hours % 12 === 0 ? 12 : hours % 12;
+    return `${String(hour12).padStart(2, '0')}:${minutes} ${suffix}`;
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? value : formatTime(parsed);
+}
+
+/** "3 days ago" style relative time, falling back to an absolute date. */
+export function formatRelativeTime(value: string | null | undefined): string {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+
+  const seconds = Math.round((Date.now() - parsed.getTime()) / 1000);
+  if (seconds < 60) return 'just now';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} hr ago`;
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)} d ago`;
+  return formatDate(parsed);
+}
+
 export function getInitials(name: string): string {
   return name
     .split(' ')

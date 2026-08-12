@@ -2,8 +2,8 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Monitor, Check, ArrowRight, Loader2, Sparkles } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
 import { useAccessibility } from '@/contexts/AccessibilityContext';
 import { useVoice } from '@/contexts/VoiceContext';
 import { AccessibilityMode } from '@/types';
@@ -66,26 +66,32 @@ description: 'Modern dashboard with full navigation, maps, and premium UI. All a
 ];
 
 export default function OnboardingPage() {
-  const { setAccessibilityMode, isLoading } = useAuth();
+  const router = useRouter();
   const { updateMode } = useAccessibility();
   const { announce } = useVoice();
   const [selectedMode, setSelectedMode] = useState<AccessibilityMode | null>(null);
   const [step, setStep] = useState<'select' | 'confirm'>('select');
+  const [isSaving, setIsSaving] = useState(false);
 
   const modeLabel = (id: AccessibilityMode) =>
     modes.find((m) => m.id === id)?.title || '';
 
   const handleSelect = async () => {
     if (!selectedMode) return;
+    setIsSaving(true);
     try {
       announce(`Configuring your experience with ${modeLabel(selectedMode)} mode.`, { priority: 'assertive', force: true });
-      await setAccessibilityMode(selectedMode);
+      // updateMode persists the mode and its preset preferences in one call.
       await updateMode(selectedMode);
       announce('Your preferences have been saved. Taking you to your dashboard.', { priority: 'assertive', force: true });
       toast.success('Your preferences have been saved!');
+      router.push('/dashboard');
     } catch (error) {
-      announce('Failed to save your preferences. Please try again.', { priority: 'assertive', force: true });
-      toast.error('Failed to save preferences');
+      const message = error instanceof Error ? error.message : 'Failed to save preferences';
+      announce(`Failed to save your preferences. ${message}`, { priority: 'assertive', force: true });
+      toast.error(message);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -207,10 +213,10 @@ export default function OnboardingPage() {
 
                         <button
                           onClick={handleSelect}
-                          disabled={isLoading}
+                          disabled={isSaving}
                           className="btn-primary w-full flex items-center justify-center text-lg py-4"
                         >
-                          {isLoading ? (
+                          {isSaving ? (
                             <Loader2 className="w-5 h-5 animate-spin" />
                           ) : (
                             <>

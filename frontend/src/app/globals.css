@@ -52,7 +52,17 @@
     @apply min-h-[48px] min-w-[48px] py-3 px-4;
   }
 
-  /* Reduced Motion */
+  /* Reduced Motion — opt-in through the accessibility preference */
+  .reduce-motion *,
+  .reduce-motion *::before,
+  .reduce-motion *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Reduced Motion — honouring the operating system setting */
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,

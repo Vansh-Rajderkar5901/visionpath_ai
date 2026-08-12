@@ -1,161 +1,64 @@
-import { User, APIResponse } from '@/types';
-import { api } from './api';
-
-// Mock data for development
-const MOCK_USERS: Record<string, { password: string; user: User }> = {
-  'admin@visionpath.ai': {
-    password: 'admin123',
-    user: {
-      id: 'admin-001',
-      email: 'admin@visionpath.ai',
-      name: 'Admin User',
-      photoURL: '',
-      role: 'admin',
-      accessibilityMode: 'standard',
-      preferences: {
-        theme: 'system',
-        fontSize: 'normal',
-        voiceSpeed: 1,
-        language: 'en',
-        highContrast: false,
-        reducedMotion: false,
-        screenReaderOptimized: false,
-        voiceNavigation: false,
-        textToSpeech: false,
-        voiceCommands: false,
-        largeTouchTargets: false,
-        audioFeedback: false,
-        magnifierReady: false,
-        continuousListening: false,
-      },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-  },
-};
+import type { AuthResponse, User, UserPreferences, AccessibilityMode } from '@/types';
+import { api, tokenStorage } from './api';
 
 export const authService = {
   async login(email: string, password: string): Promise<User> {
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    const mockUser = MOCK_USERS[email];
-    if (mockUser && mockUser.password === password) {
-      return mockUser.user;
-    }
-
-    // For demo: auto-create user for any login
-    const newUser: User = {
-      id: `user-${Date.now()}`,
-      email,
-      name: email.split('@')[0].replace(/[.-]/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
-      photoURL: '',
-      role: 'user',
-      accessibilityMode: 'standard',
-      preferences: {
-        theme: 'system',
-        fontSize: 'normal',
-        voiceSpeed: 1,
-        language: 'en',
-        highContrast: false,
-        reducedMotion: false,
-        screenReaderOptimized: false,
-        voiceNavigation: false,
-        textToSpeech: false,
-        voiceCommands: false,
-        largeTouchTargets: false,
-        audioFeedback: false,
-        magnifierReady: false,
-        continuousListening: false,
-      },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    MOCK_USERS[email] = { password, user: newUser };
-    return newUser;
+    const result = await api.post<AuthResponse>('/api/auth/login', { email, password });
+    tokenStorage.set(result.accessToken);
+    return result.user;
   },
 
   async register(name: string, email: string, password: string): Promise<User> {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    const newUser: User = {
-      id: `user-${Date.now()}`,
-      email,
+    const result = await api.post<AuthResponse>('/api/auth/register', {
       name,
-      photoURL: '',
-      role: 'user',
-      accessibilityMode: 'standard',
-      preferences: {
-        theme: 'system',
-        fontSize: 'normal',
-        voiceSpeed: 1,
-        language: 'en',
-        highContrast: false,
-        reducedMotion: false,
-        screenReaderOptimized: false,
-        voiceNavigation: false,
-        textToSpeech: false,
-        voiceCommands: false,
-        largeTouchTargets: false,
-        audioFeedback: false,
-        magnifierReady: false,
-        continuousListening: false,
-      },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    MOCK_USERS[email] = { password, user: newUser };
-    return newUser;
+      email,
+      password,
+    });
+    tokenStorage.set(result.accessToken);
+    return result.user;
   },
 
-  async loginWithGoogle(): Promise<User> {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    return {
-      id: `google-user-${Date.now()}`,
-      email: 'user@gmail.com',
-      name: 'Google User',
-      photoURL: 'https://lh3.googleusercontent.com/a/default-user',
-      role: 'user',
-      accessibilityMode: 'standard',
-      preferences: {
-        theme: 'system',
-        fontSize: 'normal',
-        voiceSpeed: 1,
-        language: 'en',
-        highContrast: false,
-        reducedMotion: false,
-        screenReaderOptimized: false,
-        voiceNavigation: false,
-        textToSpeech: false,
-        voiceCommands: false,
-        largeTouchTargets: false,
-        audioFeedback: false,
-        magnifierReady: false,
-        continuousListening: false,
-      },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+  /** Reads the session back from the server; the token alone is not trusted. */
+  async getCurrentUser(): Promise<User> {
+    return api.get<User>('/api/auth/me');
   },
 
   async logout(): Promise<void> {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-  },
-
-  async resetPassword(email: string): Promise<void> {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    if (!MOCK_USERS[email]) {
-      throw new Error('No account found with this email');
+    try {
+      await api.post('/api/auth/logout');
+    } catch {
+      // Signing out must succeed locally even if the server is unreachable.
+    } finally {
+      tokenStorage.clear();
     }
   },
 
-  async getProfile(userId: string): Promise<User> {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    const user = Object.values(MOCK_USERS).find((u) => u.user.id === userId);
-    if (!user) throw new Error('User not found');
-    return user.user;
+  async requestPasswordReset(email: string): Promise<{ message: string; resetToken?: string }> {
+    return api.post('/api/auth/forgot-password', { email });
+  },
+
+  async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+    return api.post('/api/auth/reset-password', { token, newPassword });
+  },
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<{ message: string }> {
+    return api.post('/api/auth/change-password', { currentPassword, newPassword });
+  },
+
+  async updateProfile(data: {
+    name?: string;
+    email?: string;
+    phoneNumber?: string;
+    accessibilityMode?: AccessibilityMode;
+  }): Promise<User> {
+    return api.patch<User>('/api/users/me', data);
+  },
+
+  async updateMode(accessibilityMode: AccessibilityMode): Promise<User> {
+    return api.put<User>('/api/users/me/mode', { accessibilityMode });
+  },
+
+  async updatePreferences(preferences: Partial<UserPreferences>): Promise<User> {
+    return api.put<User>('/api/users/me/preferences', preferences);
   },
 };

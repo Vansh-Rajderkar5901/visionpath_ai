@@ -2,32 +2,22 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
 import {
+  AlertTriangle,
+  Command,
+  List,
+  Loader2,
+  MapPin,
   Mic,
   MicOff,
-  Settings,
-  List,
-  Command,
+  Send,
   Sparkles,
-  Pause,
-  Globe,
-  ToggleLeft,
-  ToggleRight,
+  Volume2,
 } from 'lucide-react';
 import { useVoice } from '@/contexts/VoiceContext';
-import { useAccessibility } from '@/contexts/AccessibilityContext';
+import { voiceService } from '@/services/voice';
 import { cn } from '@/lib/utils';
-
-const exampleCommands = [
-  { command: 'Take me to Lab 204', description: 'Navigate to any room' },
-  { command: 'Guide me to Principal Office', description: 'Get directions' },
-  { command: 'Read this notice', description: 'OCR text reading' },
-  { command: 'Where is the nearest washroom?', description: 'Find facilities' },
-  { command: 'Call security', description: 'Emergency contacts' },
-  { command: 'Open profile', description: 'Navigate pages' },
-  { command: 'Navigate to Library', description: 'Indoor navigation' },
-  { command: 'Help', description: 'Available commands' },
-];
 
 export default function VoicePage() {
   const {
@@ -40,21 +30,36 @@ export default function VoicePage() {
     stopSpeaking,
     continuousMode,
     toggleContinuousMode,
+    processCommand,
+    isProcessing,
+    lastResult,
+    currentNode,
+    recognitionSupported,
   } = useVoice();
-  const { preferences, updatePreferences } = useAccessibility();
-  const [showCommands, setShowCommands] = useState(true);
 
-const isSpeechRecognitionSupported =
-    typeof window !== 'undefined' &&
-    (!!(window as any).SpeechRecognition || !!(window as any).webkitSpeechRecognition);
+  const [showCommands, setShowCommands] = useState(true);
+  const [typedCommand, setTypedCommand] = useState('');
+
+  const { data: commandInfo } = useQuery({
+    queryKey: ['voice-commands'],
+    queryFn: () => voiceService.getExamples(),
+    staleTime: 30 * 60 * 1000,
+  });
+
+  const handleTypedSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    const text = typedCommand.trim();
+    if (!text) return;
+    setTypedCommand('');
+    void processCommand(text);
+  };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between"
+        className="flex items-center justify-between gap-3 flex-wrap"
       >
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold">Voice Assistant</h1>
@@ -64,28 +69,56 @@ const isSpeechRecognitionSupported =
         </div>
         <button
           onClick={() => setShowCommands(!showCommands)}
-          className="btn-secondary text-sm"
+          className="btn-secondary text-sm flex items-center gap-2"
+          aria-expanded={showCommands}
         >
-          <List className="w-4 h-4 mr-2" />
+          <List className="w-4 h-4" />
           Commands
         </button>
       </motion.div>
 
+      {!recognitionSupported && (
+        <div
+          role="alert"
+          className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/30 flex items-start gap-3"
+        >
+          <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+              Speech recognition is not available in this browser
+            </p>
+            <p className="text-sm text-amber-700 dark:text-amber-300 mt-0.5">
+              Chrome or Edge support it. You can still type commands below and the assistant
+              will answer out loud.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {!currentNode && (
+        <div className="p-4 rounded-2xl bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-900/30 flex items-start gap-3">
+          <MapPin className="w-5 h-5 text-primary-600 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-primary-800 dark:text-primary-200">
+            Set your current location on the Indoor Navigation page and the assistant will give
+            you a full walking route instead of just finding the room.
+          </p>
+        </div>
+      )}
+
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* Main Voice Area */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Voice Control */}
+          {/* Mic */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="p-8 rounded-2xl bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border text-center"
           >
-            {/* Voice Button */}
             <div className="relative inline-block mb-6">
               <button
                 onClick={isListening ? stopListening : startListening}
+                disabled={!recognitionSupported}
                 className={cn(
-                  'w-32 h-32 rounded-full transition-all duration-500 flex items-center justify-center',
+                  'w-32 h-32 rounded-full transition-all duration-500 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed',
                   isListening
                     ? 'bg-gradient-to-br from-primary-500 to-accent-500 scale-110 shadow-2xl shadow-primary-500/40'
                     : 'bg-gradient-to-br from-gray-200 to-gray-300 dark:from-dark-border dark:to-dark-card hover:scale-105 shadow-lg'
@@ -107,11 +140,11 @@ const isSpeechRecognitionSupported =
 
               {isListening && (
                 <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 flex gap-0.5">
-                  {Array.from({ length: 8 }).map((_, i) => (
+                  {Array.from({ length: 8 }).map((_, index) => (
                     <motion.div
-                      key={i}
-                      animate={{ height: [4, Math.random() * 32 + 8, 4] }}
-                      transition={{ duration: 0.5, repeat: Infinity, delay: i * 0.1 }}
+                      key={index}
+                      animate={{ height: [4, 24, 4] }}
+                      transition={{ duration: 0.5, repeat: Infinity, delay: index * 0.1 }}
                       className="w-1.5 bg-primary-400 rounded-full"
                     />
                   ))}
@@ -119,252 +152,144 @@ const isSpeechRecognitionSupported =
               )}
             </div>
 
-            <p className="text-lg font-semibold mb-2">
-              {isListening ? 'Listening...' : 'Tap to speak'}
-            </p>
-            <p className="text-sm text-gray-500 mb-6">
+            <p className="text-sm text-gray-500 mb-4">
               {isListening
-                ? 'Speak a command clearly'
-                : 'Press the button and speak your command'}
+                ? 'Listening — speak your command'
+                : isProcessing
+                  ? 'Thinking...'
+                  : 'Tap the microphone or type a command below'}
             </p>
 
-            {/* Transcript */}
-            {transcript && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="p-4 rounded-xl bg-gray-50 dark:bg-dark-border mb-4"
-              >
-                <p className="text-sm text-gray-500 mb-1">You said:</p>
-                <p className="font-medium">{transcript}</p>
-              </motion.div>
-            )}
-
-            {/* Response */}
-            {response && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="p-4 rounded-xl bg-primary-50 dark:bg-primary-900/20 border border-primary-100 dark:border-primary-900/30"
-              >
-                <div className="flex items-start gap-3">
-                  <Sparkles className="w-5 h-5 text-primary-600 mt-0.5 flex-shrink-0" />
-                  <div className="text-left">
-                    <p className="text-sm text-gray-500 mb-1">Response:</p>
-                    <p className="text-sm font-medium text-primary-800 dark:text-primary-200">{response}</p>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-            {/* Controls */}
-            <div className="flex items-center justify-center gap-4 mt-6">
+            <div className="flex items-center justify-center gap-2 flex-wrap">
               <button
                 onClick={toggleContinuousMode}
                 className={cn(
-                  'flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors',
+                  'px-3 py-1.5 rounded-full text-xs font-medium transition-colors',
                   continuousMode
                     ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
-                    : 'bg-gray-100 dark:bg-dark-border text-gray-500'
+                    : 'bg-gray-200 dark:bg-dark-border text-gray-500'
                 )}
               >
-                {continuousMode ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
-                Continuous Mode
+                {continuousMode ? 'Continuous listening on' : 'Tap to speak'}
               </button>
-
               {isSpeaking && (
-                <button
-                  onClick={stopSpeaking}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-100 dark:bg-dark-border text-sm font-medium"
-                >
-                  <Pause className="w-4 h-4" />
-                  Stop Speaking
+                <button onClick={stopSpeaking} className="btn-secondary text-xs py-1.5">
+                  <Volume2 className="w-3.5 h-3.5 mr-1.5" />
+                  Stop speaking
                 </button>
               )}
             </div>
+
+            {/* Typed fallback — also the accessible path when the mic is blocked */}
+            <form onSubmit={handleTypedSubmit} className="mt-6 flex gap-2">
+              <input
+                type="text"
+                value={typedCommand}
+                onChange={(event) => setTypedCommand(event.target.value)}
+                placeholder='Type a command, e.g. "take me to BS-17A"'
+                className="input-field flex-1"
+                aria-label="Type a voice command"
+              />
+              <button
+                type="submit"
+                disabled={isProcessing || !typedCommand.trim()}
+                className="btn-primary px-4 disabled:opacity-50"
+                aria-label="Send command"
+              >
+                {isProcessing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
+              </button>
+            </form>
           </motion.div>
 
-          {/* Command Grid */}
-          {showCommands && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="p-4 rounded-2xl bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border"
-            >
-              <h2 className="font-semibold flex items-center gap-2 mb-4">
-                <Command className="w-5 h-5 text-primary-500" />
-                Example Commands
+          {/* Transcript + response */}
+          {(transcript || response) && (
+            <div className="p-4 rounded-2xl bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border space-y-3">
+              {transcript && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                    You said
+                  </p>
+                  <p className="text-sm mt-1">{transcript}</p>
+                </div>
+              )}
+              {response && (
+                <div aria-live="polite">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                    Assistant
+                  </p>
+                  <p className="text-sm mt-1 text-primary-800 dark:text-primary-200">
+                    {response}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Route from the last command */}
+          {lastResult?.route && (
+            <div className="p-4 rounded-2xl bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border">
+              <h2 className="font-semibold mb-3">
+                Route to {lastResult.route.end.name} — {lastResult.route.distance} m
               </h2>
-              <div className="grid sm:grid-cols-2 gap-2">
-                {exampleCommands.map((cmd) => (
-                  <div
-                    key={cmd.command}
-                    className="text-left p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-dark-border transition-colors"
+              <ol className="space-y-2 list-decimal list-inside text-sm">
+                {lastResult.route.instructions.map((instruction, index) => (
+                  <li key={index}>{instruction.text}</li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          {/* Suggestions when the assistant was unsure */}
+          {(lastResult?.matches.length ?? 0) > 0 && !lastResult?.route && (
+            <div className="p-4 rounded-2xl bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border">
+              <h2 className="font-semibold mb-3">Did you mean</h2>
+              <div className="flex flex-wrap gap-2">
+                {lastResult?.matches.map((match) => (
+                  <button
+                    key={match.id}
+                    onClick={() => processCommand(`take me to ${match.name}`)}
+                    className="px-3 py-1.5 rounded-full text-sm bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 hover:bg-primary-100"
                   >
-                    <p className="font-medium text-sm">&ldquo;{cmd.command}&rdquo;</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{cmd.description}</p>
-                  </div>
+                    {match.name}
+                  </button>
                 ))}
               </div>
-            </motion.div>
+            </div>
           )}
         </div>
 
-        {/* Settings Panel */}
-        <div className="space-y-4">
-          <motion.div
+        {/* Command list */}
+        {showCommands && (
+          <motion.aside
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="p-4 rounded-2xl bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border"
+            className="p-4 rounded-2xl bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border h-fit"
           >
             <h2 className="font-semibold flex items-center gap-2 mb-4">
-              <Settings className="w-5 h-5 text-primary-500" />
-              Voice Settings
+              <Command className="w-5 h-5 text-primary-500" />
+              Try saying
             </h2>
-            <div className="space-y-4">
-              {/* Language */}
-              <div>
-                <label className="text-sm text-gray-500 mb-1 block">Language</label>
-                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-100 dark:bg-dark-border">
-                  <Globe className="w-4 h-4 text-gray-400" />
-                  <select
-                    value={preferences.language}
-                    onChange={(e) => updatePreferences({ language: e.target.value })}
-                    className="bg-transparent w-full text-sm focus:outline-none"
-                  >
-                    <option value="en-US">English (US)</option>
-                    <option value="en-GB">English (UK)</option>
-                    <option value="es">Spanish</option>
-                    <option value="fr">French</option>
-                    <option value="de">German</option>
-                    <option value="hi">Hindi</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Voice Speed */}
-              <div>
-                <label className="text-sm text-gray-500 mb-1 block">
-                  Voice Speed: {preferences.voiceSpeed}x
-                </label>
-                <input
-                  type="range"
-                  min="0.5"
-                  max="2"
-                  step="0.25"
-                  value={preferences.voiceSpeed}
-                  onChange={(e) => updatePreferences({ voiceSpeed: parseFloat(e.target.value) })}
-                  className="w-full accent-primary-500"
-                  aria-label="Voice speed"
-                />
-                <div className="flex justify-between text-xs text-gray-400 mt-1">
-                  <span>Slow</span>
-                  <span>Normal</span>
-                  <span>Fast</span>
-                </div>
-              </div>
-
-              {/* TTS Toggle */}
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Text-to-Speech</span>
+            <div className="space-y-3">
+              {commandInfo?.examples.map((example) => (
                 <button
-                  onClick={() => updatePreferences({ textToSpeech: !preferences.textToSpeech })}
-                  className={cn(
-                    'w-12 h-6 rounded-full transition-colors relative',
-                    preferences.textToSpeech ? 'bg-primary-500' : 'bg-gray-300 dark:bg-dark-border'
-                  )}
-                  aria-label="Toggle text-to-speech"
+                  key={example.command}
+                  onClick={() => processCommand(example.command)}
+                  className="w-full text-left p-3 rounded-xl bg-gray-50 dark:bg-dark-border/40 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
                 >
-                  <div className={cn(
-                    'w-5 h-5 rounded-full bg-white shadow absolute top-0.5 transition-transform',
-                    preferences.textToSpeech ? 'translate-x-6' : 'translate-x-0.5'
-                  )} />
+                  <p className="text-sm font-medium flex items-center gap-2">
+                    <Sparkles className="w-3.5 h-3.5 text-accent-500 flex-shrink-0" />
+                    &ldquo;{example.command}&rdquo;
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1 ml-6">{example.description}</p>
                 </button>
-              </div>
-
-              {/* Voice Commands */}
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Voice Commands</span>
-                <button
-                  onClick={() => updatePreferences({ voiceCommands: !preferences.voiceCommands })}
-                  className={cn(
-                    'w-12 h-6 rounded-full transition-colors relative',
-                    preferences.voiceCommands ? 'bg-primary-500' : 'bg-gray-300 dark:bg-dark-border'
-                  )}
-                  aria-label="Toggle voice commands"
-                >
-                  <div className={cn(
-                    'w-5 h-5 rounded-full bg-white shadow absolute top-0.5 transition-transform',
-                    preferences.voiceCommands ? 'translate-x-6' : 'translate-x-0.5'
-                  )} />
-                </button>
-              </div>
-
-              {/* Audio Feedback */}
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Audio Feedback</span>
-                <button
-                  onClick={() => updatePreferences({ audioFeedback: !preferences.audioFeedback })}
-                  className={cn(
-                    'w-12 h-6 rounded-full transition-colors relative',
-                    preferences.audioFeedback ? 'bg-primary-500' : 'bg-gray-300 dark:bg-dark-border'
-                  )}
-                  aria-label="Toggle audio feedback"
-                >
-                  <div className={cn(
-                    'w-5 h-5 rounded-full bg-white shadow absolute top-0.5 transition-transform',
-                    preferences.audioFeedback ? 'translate-x-6' : 'translate-x-0.5'
-                  )} />
-                </button>
-              </div>
+              ))}
             </div>
-          </motion.div>
-
-          {/* Status Card */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.1 }}
-            className="p-4 rounded-2xl bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border"
-          >
-            <h2 className="font-semibold mb-3">Status</h2>
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-500">Listening</span>
-                <span className={cn(
-                  'font-medium',
-                  isListening ? 'text-green-600' : 'text-gray-400'
-                )}>
-                  {isListening ? 'Active' : 'Inactive'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-500">Speaking</span>
-                <span className={cn(
-                  'font-medium',
-                  isSpeaking ? 'text-green-600' : 'text-gray-400'
-                )}>
-                  {isSpeaking ? 'Active' : 'Inactive'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-500">Continuous Mode</span>
-                <span className={cn(
-                  'font-medium',
-                  continuousMode ? 'text-green-600' : 'text-gray-400'
-                )}>
-                  {continuousMode ? 'On' : 'Off'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-500">Browser Support</span>
-                <span className="font-medium text-green-600">
-                  {isSpeechRecognitionSupported ? 'Supported' : 'Not supported'}
-                </span>
-              </div>
-            </div>
-          </motion.div>
-        </div>
+          </motion.aside>
+        )}
       </div>
     </div>
   );

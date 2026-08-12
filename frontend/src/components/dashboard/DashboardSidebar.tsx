@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
 import {
   LayoutDashboard,
   Map,
@@ -12,22 +13,25 @@ import {
   Camera,
   AlertTriangle,
   User,
-  Settings,
+  Shield,
   LogOut,
   ChevronLeft,
   ChevronRight,
   Eye,
   Headphones,
-  MessageSquare,
+  Volume2,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAccessibility } from '@/contexts/AccessibilityContext';
+import { useVoice } from '@/contexts/VoiceContext';
+import { notificationService } from '@/services/notifications';
 import { cn } from '@/lib/utils';
 
 interface NavItem {
   label: string;
   href: string;
   icon: React.ElementType;
-  badge?: number;
+  adminOnly?: boolean;
 }
 
 const navItems: NavItem[] = [
@@ -36,21 +40,58 @@ const navItems: NavItem[] = [
   { label: 'Indoor Navigation', href: '/dashboard/indoor', icon: Navigation },
   { label: 'Voice Assistant', href: '/dashboard/voice', icon: Mic },
   { label: 'OCR Reader', href: '/dashboard/ocr', icon: Camera },
-  { label: 'Emergency SOS', href: '/dashboard/emergency', icon: AlertTriangle, badge: 1 },
+  { label: 'Emergency SOS', href: '/dashboard/emergency', icon: AlertTriangle },
   { label: 'Profile', href: '/dashboard/profile', icon: User },
-];
-
-const quickActions = [
-  { label: 'Screen Reader', icon: Eye, active: false },
-  { label: 'Voice Guide', icon: Headphones, active: true },
-  { label: 'Chat', icon: MessageSquare, active: false },
+  { label: 'Admin Panel', href: '/dashboard/admin', icon: Shield, adminOnly: true },
 ];
 
 export function DashboardSidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const { preferences, updatePreferences } = useAccessibility();
+  const { speech, setSpeech } = useVoice();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Unread count drives the badge, rather than a hard-coded number.
+  const { data: notifications } = useQuery({
+    queryKey: ['notifications-unread'],
+    queryFn: () => notificationService.list(true, 1),
+    refetchInterval: 60_000,
+    enabled: !!user,
+  });
+  const unreadCount = notifications?.unreadCount ?? 0;
+
+  const visibleNavItems = navItems.filter(
+    (item) => !item.adminOnly || user?.role === 'admin'
+  );
+
+  const quickActions = [
+    {
+      label: 'Screen Reader',
+      icon: Eye,
+      active: preferences.screenReaderOptimized,
+      onToggle: () =>
+        updatePreferences({
+          screenReaderOptimized: !preferences.screenReaderOptimized,
+        }).catch(() => undefined),
+    },
+    {
+      label: 'Voice Guide',
+      icon: Headphones,
+      active: speech.enabled && !speech.muted,
+      onToggle: () => setSpeech({ enabled: !speech.enabled, muted: false }),
+    },
+    {
+      label: 'High Contrast',
+      icon: Volume2,
+      active: preferences.highContrast,
+      onToggle: () =>
+        updatePreferences({ highContrast: !preferences.highContrast }).catch(
+          () => undefined
+        ),
+    },
+  ];
 
   return (
     <>
@@ -107,8 +148,9 @@ export function DashboardSidebar() {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const isActive = pathname === item.href;
+            const badge = item.href === '/dashboard/emergency' ? unreadCount : 0;
             return (
               <Link
                 key={item.href}
@@ -128,12 +170,15 @@ export function DashboardSidebar() {
                 {!collapsed && (
                   <span className="text-sm">{item.label}</span>
                 )}
-                {item.badge && (
-                  <span className={cn(
-                    'ml-auto w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center',
-                    collapsed && 'absolute top-1 right-1'
-                  )}>
-                    {item.badge}
+                {badge > 0 && (
+                  <span
+                    className={cn(
+                      'ml-auto w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center',
+                      collapsed && 'absolute top-1 right-1'
+                    )}
+                    aria-label={`${badge} unread notifications`}
+                  >
+                    {badge > 9 ? '9+' : badge}
                   </span>
                 )}
               </Link>
@@ -149,6 +194,9 @@ export function DashboardSidebar() {
               {quickActions.map((action) => (
                 <button
                   key={action.label}
+                  onClick={action.onToggle}
+                  role="switch"
+                  aria-checked={action.active}
                   className={cn(
                     'w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors',
                     action.active
@@ -159,7 +207,7 @@ export function DashboardSidebar() {
                   <action.icon className="w-4 h-4" />
                   {action.label}
                   {action.active && (
-                    <span className="ml-auto w-2 h-2 rounded-full bg-accent-500 animate-pulse" />
+                    <span className="ml-auto w-2 h-2 rounded-full bg-accent-500" />
                   )}
                 </button>
               ))}

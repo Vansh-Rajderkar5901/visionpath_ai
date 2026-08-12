@@ -35,7 +35,8 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+        {/* Leaflet's stylesheet is imported by components/map/CampusMap so it
+            ships from the local package instead of a CDN. */}
       </head>
       <body className="min-h-screen antialiased">
         <Providers>{children}</Providers>

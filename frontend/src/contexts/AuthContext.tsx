@@ -1,21 +1,60 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
-import { User, AuthState, AccessibilityMode } from '@/types';
-import { authService } from '@/services/auth';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from 'react';
 import { useRouter } from 'next/navigation';
+import type { AccessibilityMode, AuthState, User, UserPreferences } from '@/types';
+import { authService } from '@/services/auth';
+import { tokenStorage, USER_STORAGE_KEY } from '@/services/api';
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
-  loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
-  updateProfile: (data: Partial<User>) => Promise<void>;
-  setAccessibilityMode: (mode: AccessibilityMode) => Promise<void>;
-  resetPassword: (email: string) => Promise<void>;
+  updateProfile: (data: {
+    name?: string;
+    email?: string;
+    phoneNumber?: string;
+  }) => Promise<User>;
+  setAccessibilityMode: (mode: AccessibilityMode) => Promise<User>;
+  updatePreferences: (preferences: Partial<UserPreferences>) => Promise<User>;
+  requestPasswordReset: (email: string) => Promise<{ message: string; resetToken?: string }>;
+  refresh: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+/**
+ * The cached user is only a paint-flicker optimisation for the first render.
+ * Authentication itself always comes from the token plus a live /api/auth/me
+ * check, so editing localStorage cannot grant access or an admin role.
+ */
+function readCachedUser(): User | null {
+  if (typeof window === 'undefined') return null;
+  const raw = window.localStorage.getItem(USER_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as User;
+  } catch {
+    window.localStorage.removeItem(USER_STORAGE_KEY);
+    return null;
+  }
+}
+
+function cacheUser(user: User | null): void {
+  if (typeof window === 'undefined') return;
+  if (user) {
+    window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+  } else {
+    window.localStorage.removeItem(USER_STORAGE_KEY);
+  }
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({
@@ -25,89 +64,123 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
   const router = useRouter();
 
-  useEffect(() => {
-    const storedUser = localStorage.getItem('visionpath_user');
-    if (storedUser) {
-      try {
-        const user = JSON.parse(storedUser) as User;
-        setState({ user, isLoading: false, isAuthenticated: true });
-      } catch {
-        localStorage.removeItem('visionpath_user');
-        setState({ user: null, isLoading: false, isAuthenticated: false });
-      }
-    } else {
-      setState({ user: null, isLoading: false, isAuthenticated: false });
-    }
+  const applyUser = useCallback((user: User) => {
+    cacheUser(user);
+    setState({ user, isLoading: false, isAuthenticated: true });
   }, []);
 
-  const login = useCallback(async (email: string, password: string, rememberMe = false) => {
-    setState(prev => ({ ...prev, isLoading: true }));
-    try {
-      const user = await authService.login(email, password);
-      localStorage.setItem('visionpath_user', JSON.stringify(user));
-      if (rememberMe) {
-        localStorage.setItem('visionpath_remember', 'true');
+  const clearSession = useCallback(() => {
+    tokenStorage.clear();
+    setState({ user: null, isLoading: false, isAuthenticated: false });
+  }, []);
+
+  // Restore the session on first load by validating the stored token.
+  useEffect(() => {
+    let cancelled = false;
+
+    async function restore() {
+      if (!tokenStorage.get()) {
+        clearSession();
+        return;
       }
-      setState({ user, isLoading: false, isAuthenticated: true });
-      router.push(user.accessibilityMode ? '/dashboard' : '/onboarding');
-    } catch (error) {
-      setState(prev => ({ ...prev, isLoading: false }));
-      throw error;
-    }
-  }, [router]);
 
-  const register = useCallback(async (name: string, email: string, password: string) => {
-    setState(prev => ({ ...prev, isLoading: true }));
-    try {
-      const user = await authService.register(name, email, password);
-      localStorage.setItem('visionpath_user', JSON.stringify(user));
-      setState({ user, isLoading: false, isAuthenticated: true });
-      router.push('/onboarding');
-    } catch (error) {
-      setState(prev => ({ ...prev, isLoading: false }));
-      throw error;
-    }
-  }, [router]);
+      // Show the cached identity immediately, then confirm it with the server.
+      const cached = readCachedUser();
+      if (cached) {
+        setState({ user: cached, isLoading: true, isAuthenticated: true });
+      }
 
-  const loginWithGoogle = useCallback(async () => {
-    setState(prev => ({ ...prev, isLoading: true }));
-    try {
-      const user = await authService.loginWithGoogle();
-      localStorage.setItem('visionpath_user', JSON.stringify(user));
-      setState({ user, isLoading: false, isAuthenticated: true });
-      router.push(user.accessibilityMode ? '/dashboard' : '/onboarding');
-    } catch (error) {
-      setState(prev => ({ ...prev, isLoading: false }));
-      throw error;
+      try {
+        const user = await authService.getCurrentUser();
+        if (!cancelled) applyUser(user);
+      } catch {
+        if (!cancelled) clearSession();
+      }
     }
-  }, [router]);
+
+    restore();
+    return () => {
+      cancelled = true;
+    };
+  }, [applyUser, clearSession]);
+
+  const login = useCallback(
+    async (email: string, password: string, rememberMe = false) => {
+      setState((prev) => ({ ...prev, isLoading: true }));
+      try {
+        const user = await authService.login(email, password);
+        applyUser(user);
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem('visionpath_remember', rememberMe ? 'true' : 'false');
+        }
+        router.push(user.accessibilityMode ? '/dashboard' : '/onboarding');
+      } catch (error) {
+        setState((prev) => ({ ...prev, isLoading: false }));
+        throw error;
+      }
+    },
+    [applyUser, router]
+  );
+
+  const register = useCallback(
+    async (name: string, email: string, password: string) => {
+      setState((prev) => ({ ...prev, isLoading: true }));
+      try {
+        const user = await authService.register(name, email, password);
+        applyUser(user);
+        router.push('/onboarding');
+      } catch (error) {
+        setState((prev) => ({ ...prev, isLoading: false }));
+        throw error;
+      }
+    },
+    [applyUser, router]
+  );
 
   const logout = useCallback(async () => {
     await authService.logout();
-    localStorage.removeItem('visionpath_user');
-    localStorage.removeItem('visionpath_remember');
-    setState({ user: null, isLoading: false, isAuthenticated: false });
+    clearSession();
     router.push('/');
-  }, [router]);
+  }, [clearSession, router]);
 
-  const updateProfile = useCallback(async (data: Partial<User>) => {
-    if (!state.user) throw new Error('Not authenticated');
-    const updatedUser = { ...state.user, ...data };
-    localStorage.setItem('visionpath_user', JSON.stringify(updatedUser));
-    setState(prev => ({ ...prev, user: updatedUser }));
-  }, [state.user]);
+  const updateProfile = useCallback(
+    async (data: { name?: string; email?: string; phoneNumber?: string }) => {
+      const user = await authService.updateProfile(data);
+      applyUser(user);
+      return user;
+    },
+    [applyUser]
+  );
 
-  const setAccessibilityMode = useCallback(async (mode: AccessibilityMode) => {
-    if (!state.user) throw new Error('Not authenticated');
-    const updatedUser = { ...state.user, accessibilityMode: mode };
-    localStorage.setItem('visionpath_user', JSON.stringify(updatedUser));
-    setState(prev => ({ ...prev, user: updatedUser }));
-    router.push('/dashboard');
-  }, [state.user, router]);
+  const setAccessibilityMode = useCallback(
+    async (mode: AccessibilityMode) => {
+      const user = await authService.updateMode(mode);
+      applyUser(user);
+      return user;
+    },
+    [applyUser]
+  );
 
-  const resetPassword = useCallback(async (email: string) => {
-    await authService.resetPassword(email);
+  const updatePreferences = useCallback(
+    async (preferences: Partial<UserPreferences>) => {
+      const user = await authService.updatePreferences(preferences);
+      applyUser(user);
+      return user;
+    },
+    [applyUser]
+  );
+
+  const requestPasswordReset = useCallback(async (email: string) => {
+    return authService.requestPasswordReset(email);
   }, []);
+
+  const refresh = useCallback(async () => {
+    try {
+      applyUser(await authService.getCurrentUser());
+    } catch {
+      clearSession();
+    }
+  }, [applyUser, clearSession]);
 
   return (
     <AuthContext.Provider
@@ -115,11 +188,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ...state,
         login,
         register,
-        loginWithGoogle,
         logout,
         updateProfile,
         setAccessibilityMode,
-        resetPassword,
+        updatePreferences,
+        requestPasswordReset,
+        refresh,
       }}
     >
       {children}
@@ -134,4 +208,3 @@ export function useAuth() {
   }
   return context;
 }
-

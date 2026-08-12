@@ -1,27 +1,31 @@
 """
-Database configuration and session management
+PostgreSQL connection, session factory, and declarative base.
+
+The connection string comes from the DATABASE_URL environment variable only —
+see core.config. Nothing is hard-coded here.
 """
 
-import os
+from collections.abc import Generator
+
 from sqlalchemy import create_engine, text
-from sqlalchemy.orm import declarative_base, sessionmaker
-from dotenv import load_dotenv
+from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
-load_dotenv()
-
-DATABASE_URL = "postgresql://postgres:Lekha%401234@localhost:5432/indoor_navigation_db"
+from core.config import settings
 
 engine = create_engine(
-    DATABASE_URL,
+    settings.database_url,
     pool_pre_ping=True,
-    echo=False
+    echo=settings.sql_echo,
+    future=True,
 )
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False, future=True)
+
 Base = declarative_base()
 
 
-def get_db():
-    """Dependency to get database session"""
+def get_db() -> Generator[Session, None, None]:
+    """FastAPI dependency yielding a request-scoped session."""
     db = SessionLocal()
     try:
         yield db
@@ -29,18 +33,17 @@ def get_db():
         db.close()
 
 
-def init_db():
-    """Initialize database tables"""
+def init_db() -> None:
+    """Create any missing tables. Importing models registers them on Base."""
+    import models  # noqa: F401  (side-effect: registers all mappers)
+
     Base.metadata.create_all(bind=engine)
 
 
-def check_db_connection():
-    """Check database connection health"""
+def check_db_connection() -> bool:
     try:
-        db = SessionLocal()
-        db.execute(text("SELECT 1"))
-        db.close()
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
         return True
     except Exception:
         return False
-

@@ -1,74 +1,89 @@
-"""
-Emergency models for SOS alerts and contacts
-"""
+"""Emergency contacts and SOS alerts."""
 
-import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Boolean, DateTime, JSON, ForeignKey, Enum
+
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+)
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.postgresql import UUID
+
 from database.config import Base
-import enum
 
-
-class AlertType(str, enum.Enum):
-    SOS = "sos"
-    MEDICAL = "medical"
-    SECURITY = "security"
-    FIRE = "fire"
-
-
-class AlertStatus(str, enum.Enum):
-    ACTIVE = "active"
-    RESOLVED = "resolved"
+ALERT_TYPES = ("sos", "medical", "security", "fire")
+ALERT_ACTIVE = "active"
+ALERT_RESOLVED = "resolved"
 
 
 class EmergencyContact(Base):
     __tablename__ = "emergency_contacts"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    name = Column(String, nullable=False)
-    phone = Column(String, nullable=False)
-    relationship = Column(String, nullable=False)
-    is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    contact_id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(
+        Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    name = Column(String(128), nullable=False)
+    phone = Column(String(32), nullable=False)
+    # Named `relation` in Python: `relationship` would shadow the SQLAlchemy
+    # helper imported above and break the mapper below.
+    relation = Column("relationship", String(64), nullable=False, default="Contact")
+    is_primary = Column(Boolean, nullable=False, default=False)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
-    user = relationship("User")
+    user = relationship("User", back_populates="emergency_contacts")
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
         return {
-            "id": str(self.id),
+            "id": str(self.contact_id),
             "name": self.name,
             "phone": self.phone,
-            "relationship": self.relationship,
-            "is_active": self.is_active,
+            "relationship": self.relation,
+            "isPrimary": self.is_primary,
+            "isActive": self.is_active,
         }
 
 
 class EmergencyAlert(Base):
     __tablename__ = "emergency_alerts"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    type = Column(Enum(AlertType), default=AlertType.SOS, nullable=False)
-    location = Column(JSON, nullable=True)
-    status = Column(Enum(AlertStatus), default=AlertStatus.ACTIVE, nullable=False)
-    message = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    resolved_at = Column(DateTime, nullable=True)
+    alert_id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(
+        Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    alert_type = Column(String(16), nullable=False, default="sos")
+    latitude = Column(Float)
+    longitude = Column(Float)
+    accuracy = Column(Float)
+    building = Column(String(128))
+    floor = Column(String(64))
+    message = Column(String(500))
+    status = Column(String(16), nullable=False, default=ALERT_ACTIVE, index=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    resolved_at = Column(DateTime)
 
     user = relationship("User")
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
         return {
-            "id": str(self.id),
-            "user_id": str(self.user_id),
-            "type": self.type.value,
-            "location": self.location,
-            "status": self.status.value,
+            "id": str(self.alert_id),
+            "userId": str(self.user_id),
+            "userName": self.user.display_name if self.user else None,
+            "type": self.alert_type,
+            "location": {
+                "latitude": self.latitude,
+                "longitude": self.longitude,
+                "accuracy": self.accuracy,
+                "building": self.building,
+                "floor": self.floor,
+            },
+            "status": self.status,
             "message": self.message,
-            "created_at": self.created_at.isoformat(),
-            "resolved_at": self.resolved_at.isoformat() if self.resolved_at else None,
+            "timestamp": self.created_at.isoformat() if self.created_at else None,
+            "resolvedAt": self.resolved_at.isoformat() if self.resolved_at else None,
         }
-
