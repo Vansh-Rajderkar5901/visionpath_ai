@@ -1,122 +1,277 @@
 import { Graph } from "./types";
 
 export const graph: Graph = {
-
+  // ---- Top row rooms ----
   Seminar_Hall: {
-    Seminar_Junction: 2,
-  },
-
-  Seminar_Junction: {
-    Seminar_Hall: 2,
-    North_Corridor: 4,
-  },
-
-  North_Corridor: {
-    Seminar_Junction: 4,
-    BS19: 3,
-    BS18_Corridor: 5,
+    Top_Corner_Left: 2,
   },
 
   BS19: {
-    North_Corridor: 3,
+    BS19_J: 2,
   },
 
-  BS18_Corridor: {
-    North_Corridor: 5,
-    BS18A: 2,
-    BS18B: 2,
-    BS17_Corridor: 6,
-  },
-
-  BS18A: {
-    BS18_Corridor: 2,
-  },
-
-  BS18B: {
-    BS18_Corridor: 2,
-  },
-
-  BS17_Corridor: {
-    BS18_Corridor: 6,
-    BS17A: 2,
-    BS17B: 2,
-    BS17C: 2,
-    BS17D: 3,
-    Courtyard_Junction: 8,
-  },
-
-  BS17A: {
-    BS17_Corridor: 2,
-  },
-
-  BS17B: {
-    BS17_Corridor: 2,
-  },
-
-  BS17C: {
-    BS17_Corridor: 2,
+  BS18: {
+    BS18_J: 2,
   },
 
   BS17D: {
-    BS17_Corridor: 3,
+    BS17D_J: 2,
   },
 
-  Courtyard_Junction: {
-    BS17_Corridor: 8,
-    Lift_Stair_Junction: 6,
+  BS17C: {
+    BS17C_J: 2,
   },
 
-  Lift_Stair_Junction: {
-    Courtyard_Junction: 6,
-    Lift_Area: 2,
-    Stair_Area: 2,
-    Water_Dispenser: 1,
-    Faculty_Junction: 5,
+  BS17B: {
+    BS17B_J: 2,
   },
 
-  Lift_Area: {
-    Lift_Stair_Junction: 2,
+  BS17A: {
+    BS17A_J: 2,
   },
 
-  Stair_Area: {
-    Lift_Stair_Junction: 2,
+  // ---- Top corridor junctions ----
+  Top_Corner_Left: {
+    Seminar_Hall: 2,
+    BS19_J: 3,
+    Left_Mid: 4,
+  },
+
+  BS19_J: {
+    Top_Corner_Left: 3,
+    BS19: 2,
+    BS18_J: 2,
+  },
+
+  BS18_J: {
+    BS19_J: 2,
+    BS18: 2,
+    BS17D_J: 2,
+  },
+
+  BS17D_J: {
+    BS18_J: 2,
+    BS17D: 2,
+    BS17C_J: 2,
+  },
+
+  BS17C_J: {
+    BS17D_J: 2,
+    BS17C: 2,
+    BS17B_J: 2,
+  },
+
+  BS17B_J: {
+    BS17C_J: 2,
+    BS17B: 2,
+    BS17A_J: 2,
+  },
+
+  BS17A_J: {
+    BS17B_J: 2,
+    BS17A: 2,
+    Top_Corner_Right: 2,
+  },
+
+  Top_Corner_Right: {
+    BS17A_J: 2,
+    Right_Mid: 4,
+  },
+
+  // ---- Mid-north rooms ----
+  BS16: {
+    Left_Mid: 2,
+  },
+
+  BS15: {
+    Stair: 2,
+  },
+
+  BS14: {
+    Water_Dispenser: 2,
+  },
+
+  BS10: {
+    Mid_400: 2,
+  },
+
+  BS09: {
+    Mid_500: 2,
+  },
+
+  BS08: {
+    Mid_600: 2,
+  },
+
+  Girls_Sick_Room: {
+    Mid_700: 2,
+  },
+
+  Toilet_Top: {
+    Mid_800: 2,
+  },
+
+  // ---- Mid corridor junctions + facilities ----
+  Left_Mid: {
+    Top_Corner_Left: 4,
+    Lift: 1,
+    BS16: 2,
+    Stair: 2,
+    Left_Bottom: 4,
+  },
+
+  Lift: {
+    Left_Mid: 1,
+  },
+
+  Stair: {
+    Left_Mid: 2,
+    BS15: 2,
+    Water_Dispenser: 2,
   },
 
   Water_Dispenser: {
-    Lift_Stair_Junction: 1,
+    Stair: 2,
+    BS14: 2,
+    Mid_400: 2,
   },
 
-  Faculty_Junction: {
-    Lift_Stair_Junction: 5,
-    Faculty_Room: 2,
-    Meeting_Room: 3,
-    Classroom_Junction: 6,
+  Mid_400: {
+    Water_Dispenser: 2,
+    BS10: 2,
+    Mid_500: 2,
   },
 
-  Faculty_Room: {
-    Faculty_Junction: 2,
+  Mid_500: {
+    Mid_400: 2,
+    BS09: 2,
+    Mid_600: 2,
   },
 
-  Meeting_Room: {
-    Faculty_Junction: 3,
+  Mid_600: {
+    Mid_500: 2,
+    BS08: 2,
+    Mid_700: 2,
   },
 
-  Classroom_Junction: {
-    Faculty_Junction: 6,
-    BS05: 2,
-    BS07: 2,
-    Toilet: 2,
+  Mid_700: {
+    Mid_600: 2,
+    Girls_Sick_Room: 2,
+    Mid_800: 2,
+  },
+
+  Mid_800: {
+    Mid_700: 2,
+    Toilet_Top: 2,
+    Right_Mid: 2,
+  },
+
+  Right_Mid: {
+    Mid_800: 2,
+    Top_Corner_Right: 4,
+    Right_Bottom: 4,
+  },
+
+  // ---- Bottom room nodes (on bottom corridor) ----
+  BS07: {
+    Bottom_150: 1,
+  },
+
+  BS06: {
+    Bottom_250: 1,
   },
 
   BS05: {
-    Classroom_Junction: 2,
+    Bottom_350: 1,
   },
 
-  BS07: {
-    Classroom_Junction: 2,
+  BS04: {
+    Bottom_450: 1,
   },
 
-  Toilet: {
-    Classroom_Junction: 2,
+  BS03: {
+    Bottom_550: 1,
+  },
+
+  // ---- Bottom corridor junctions ----
+  Left_Bottom: {
+    Left_Mid: 4,
+    Bottom_150: 2,
+  },
+
+  Bottom_150: {
+    Left_Bottom: 2,
+    BS07: 1,
+    Faculty_Room: 3,
+    Bottom_250: 2,
+  },
+
+  Bottom_250: {
+    Bottom_150: 2,
+    BS06: 1,
+    DS_Faculty_Room: 3,
+    Bottom_350: 2,
+  },
+
+  Bottom_350: {
+    Bottom_250: 2,
+    BS05: 1,
+    AI_Faculty_Room: 3,
+    Bottom_450: 2,
+  },
+
+  Bottom_450: {
+    Bottom_350: 2,
+    BS04: 1,
+    Meeting_Room: 3,
+    Bottom_550: 2,
+  },
+
+  Bottom_550: {
+    Bottom_450: 2,
+    BS03: 1,
+    Cyber_Security: 3,
+    Bottom_600: 2,
+  },
+
+  Bottom_600: {
+    Bottom_550: 2,
+    Bottom_700: 2,
+  },
+
+  Bottom_700: {
+    Bottom_600: 2,
+    Bottom_800: 2,
+  },
+
+  Bottom_800: {
+    Bottom_700: 2,
+    Right_Bottom: 2,
+  },
+
+  Right_Bottom: {
+    Bottom_800: 2,
+    Right_Mid: 4,
+  },
+
+  // ---- South row rooms ----
+  Faculty_Room: {
+    Bottom_150: 3,
+  },
+
+  DS_Faculty_Room: {
+    Bottom_250: 3,
+  },
+
+  AI_Faculty_Room: {
+    Bottom_350: 3,
+  },
+
+  Meeting_Room: {
+    Bottom_450: 3,
+  },
+
+  Cyber_Security: {
+    Bottom_550: 3,
   },
 };

@@ -1,15 +1,12 @@
 'use client';
 
-import React, { Suspense, type ReactNode } from 'react';
+import React, { type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { AccessibilityProvider } from '@/contexts/AccessibilityContext';
 import { VoiceProvider } from '@/contexts/VoiceContext';
 import { ThemeProvider } from './ThemeProvider';
-import { AccessibilityAnnouncer } from '@/components/accessibility/AccessibilityAnnouncer';
-import { AccessibilityPanel } from '@/components/accessibility/AccessibilityPanel';
-import { SkipToContent } from '@/components/accessibility/SkipToContent';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -28,12 +25,7 @@ export function Providers({ children }: { children: ReactNode }) {
         <AuthProvider>
           <AccessibilityProvider>
             <VoiceProvider>
-              <SkipToContent />
-              <Suspense fallback={null}>
-                <AccessibilityAnnouncer />
-              </Suspense>
               {children}
-              <AccessibilityPanel />
               <Toaster
                 position="top-right"
                 toastOptions={{

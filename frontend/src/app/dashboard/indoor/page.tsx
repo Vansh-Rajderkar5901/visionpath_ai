@@ -1,42 +1,39 @@
 'use client';
 
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Building2,
   Navigation,
   MapPin,
-  ArrowRight,
-  ArrowLeft,
-  ArrowUp,
-  ArrowDown,
-  Search,
   ChevronRight,
-  Layers,
-  Loader2,
   Footprints,
+  Route,
+  Locate,
+  CheckCircle,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { navigationService } from '@/services/navigation';
 import { cn } from '@/lib/utils';
-import type { Building, Floor, NavigationDestination, Facility } from '@/types';
-import { navigate } from "@/navigation/navigationService";
+import type { Building, Floor, NavigationDestination } from '@/types';
+import { navigate } from '@/navigation/navigationService';
+import { IndoorMap } from '@/components/navigation/IndoorMap';
+import { SearchDropdown } from '@/components/navigation/SearchDropdown';
+import { BuildingSelector } from '@/components/navigation/BuildingSelector';
+import { FloorSelector } from '@/components/navigation/FloorSelector';
+import { NODE_POSITIONS } from '@/components/navigation/indoorMapData';
 
 export default function IndoorNavigationPage() {
   const [selectedBuilding, setSelectedBuilding] = useState<Building | null>(null);
   const [selectedFloor, setSelectedFloor] = useState<Floor | null>(null);
   const [selectedDestination, setSelectedDestination] = useState<NavigationDestination | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showFacilities, setShowFacilities] = useState(false);
 
-  const [currentLocation, setCurrentLocation] = useState("Lift_Area");
+// Current location comes from a variable only (later: BLE/QR/NFC/WiFi/CV/manual).
+  const [currentLocation, setCurrentLocation] = useState('Lift');
 
   const [route, setRoute] = useState<string[]>([]);
-
   const [instructions, setInstructions] = useState<string[]>([]);
-
   const [totalDistance, setTotalDistance] = useState(0);
-  console.log("Indoor Navigation Page Rendered");
 
   const { data: buildings } = useQuery({
     queryKey: ['buildings'],
@@ -48,103 +45,112 @@ export default function IndoorNavigationPage() {
     queryFn: navigationService.getDestinations,
   });
 
+  // ---------- Navigation ----------
+  const handleNavigate = useCallback(() => {
+    if (!selectedDestination) return;
+
+    const result = navigate(currentLocation, selectedDestination.name);
+    setRoute(result.path);
+    setInstructions(result.instructions);
+    setTotalDistance(result.distance);
+  }, [currentLocation, selectedDestination]);
+
+  // ---------- Voice module integration ----------
+  // Expose controls so the voice teammate can call them without a refactor.
+  const apiRef = useRef<{ setSelectedDestination: typeof setSelectedDestination; handleNavigate: typeof handleNavigate } | null>(null);
+  apiRef.current = { setSelectedDestination, handleNavigate };
+
+  useEffect(() => {
+    // Expose functions globally (typed as any to stay simple).
+    (window as unknown as Record<string, unknown>).__indoorNavigation = {
+      setSelectedDestination: (dest: NavigationDestination) => apiRef.current?.setSelectedDestination(dest),
+      handleNavigate: () => apiRef.current?.handleNavigate(),
+    };
+
+    // Listen for the existing voice 'navigate' event dispatched by VoiceContext.
+    const onNavigateEvent = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { destination?: string } | undefined;
+      const destName = detail?.destination;
+      if (!destName) return;
+      const match = destinations?.find(
+        (d) => d.name.toLowerCase() === destName.toLowerCase()
+      );
+      if (match) {
+        apiRef.current?.setSelectedDestination(match);
+        // navigate after state settles
+        setTimeout(() => apiRef.current?.handleNavigate(), 0);
+      }
+    };
+
+    window.addEventListener('navigate', onNavigateEvent);
+    return () => {
+      window.removeEventListener('navigate', onNavigateEvent);
+      delete (window as unknown as Record<string, unknown>).__indoorNavigation;
+    };
+  }, [destinations]);
+
+  // ---------- Handlers ----------
   const handleBuildingSelect = (building: Building) => {
     setSelectedBuilding(building);
     setSelectedFloor(building.floors[0] || null);
     setSelectedDestination(null);
+    setRoute([]);
+    setInstructions([]);
+    setTotalDistance(0);
   };
 
-  const handleNavigate = () => {
+  const handleFloorSelect = (floor: Floor) => {
+    setSelectedFloor(floor);
+    setSelectedDestination(null);
+    setRoute([]);
+    setInstructions([]);
+    setTotalDistance(0);
+  };
 
-  if (!selectedDestination) return;
+  const handleDestinationSelect = (dest: NavigationDestination) => {
+    setSelectedDestination(dest);
+    setSearchQuery('');
+    setRoute([]);
+    setInstructions([]);
+    setTotalDistance(0);
+  };
 
-  const result = navigate(
-    currentLocation,
-    selectedDestination.name
-  );
+  const handleRoomSelect = (node: string) => {
+    const match = destinations?.find((d) => d.name === node);
+    if (match) {
+      setSelectedDestination(match);
+    }
+  };
 
-  setRoute(result.path);
-
-  setInstructions(result.instructions);
-
-  setTotalDistance(result.distance);
-
-  console.log(result);
-
-};
-
-  const filteredDestinations = destinations?.filter(
-    (d) =>
-      d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      d.building.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-  console.log("Search:", searchQuery);
-console.log("Filtered:", filteredDestinations);
+  const destinationNode = selectedDestination?.name ?? null;
+  const currentPos = NODE_POSITIONS[currentLocation];
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
-<h1 className="text-4xl font-bold text-red-500">
-  TEST PAGE - RUCHIRA
-</h1>        <p className="text-gray-600 dark:text-gray-400 mt-1">
+      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
+        <h1 className="text-3xl sm:text-4xl font-bold">Indoor Navigation</h1>
+        <p className="text-gray-600 dark:text-gray-400 mt-1">
           Navigate buildings, floors, and rooms with precision
         </p>
       </motion.div>
-      {/* Navigation Result */}
-{route.length > 0 && (
-  <motion.div
-    initial={{ opacity: 0, y: 10 }}
-    animate={{ opacity: 1, y: 0 }}
-    className="bg-white dark:bg-dark-card rounded-2xl border border-gray-200 dark:border-dark-border p-4"
-  >
-    <h3 className="text-lg font-semibold mb-3">
-      Navigation Result
-    </h3>
-
-    <p className="mb-3">
-      <strong>Total Distance:</strong> {totalDistance} meters
-    </p>
-
-    <h4 className="font-semibold mb-2">
-      Shortest Path
-    </h4>
-
-    <ul className="list-disc ml-6 mb-4">
-      {route.map((node) => (
-        <li key={node}>{node}</li>
-      ))}
-    </ul>
-
-    <h4 className="font-semibold mb-2">
-      Voice Instructions
-    </h4>
-
-    <ul className="list-disc ml-6">
-      {instructions.map((instruction, index) => (
-        <li key={index}>{instruction}</li>
-      ))}
-    </ul>
-  </motion.div>
-)}
 
       {/* Step Progress */}
-      <div className="flex items-center gap-2 text-sm">
+      <div className="flex items-center gap-2 text-sm flex-wrap">
         {[
           { label: 'Building', active: !!selectedBuilding },
           { label: 'Floor', active: !!selectedFloor },
           { label: 'Destination', active: !!selectedDestination },
         ].map((step, i) => (
           <React.Fragment key={step.label}>
-            <div className={cn(
-              'flex items-center gap-2 px-3 py-1.5 rounded-full font-medium',
-              step.active
-                ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
-                : 'bg-gray-100 dark:bg-dark-border text-gray-400'
-            )}>
+            <div
+              className={cn(
+                'flex items-center gap-2 px-3 py-1.5 rounded-full font-medium',
+                step.active
+                  ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
+                  : 'bg-gray-100 dark:bg-dark-border text-gray-400'
+              )}
+            >
               {step.active ? <Navigation className="w-3.5 h-3.5" /> : <MapPin className="w-3.5 h-3.5" />}
               {step.label}
             </div>
@@ -154,211 +160,53 @@ console.log("Filtered:", filteredDestinations);
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* Left Panel - Building & Floor Selection */}
+        {/* Left Panel */}
         <div className="lg:col-span-1 space-y-4">
-          {/* Search */}
-          <div className="relative z-50">
+          <BuildingSelector
+            buildings={buildings}
+            selectedBuilding={selectedBuilding}
+            onSelect={handleBuildingSelect}
+          />
 
-  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-
-  <input
-    type="text"
-    value={searchQuery}
-    onChange={(e) => setSearchQuery(e.target.value)}
-    className="input-field pl-12"
-    placeholder="Search destinations..."
-  />
-
-  {searchQuery.trim() !== "" && filteredDestinations && (
-    <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-dark-card rounded-xl shadow-2xl border border-gray-200 dark:border-dark-border max-h-72 overflow-y-auto">
-
-      {filteredDestinations.length > 0 ? (
-
-        filteredDestinations.map((dest) => (
-
-          <button
-            key={dest.id}
-            onClick={() => {
-              setSelectedDestination(dest);
-              setSearchQuery("");
-            }}
-            className="w-full text-left px-4 py-3 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition"
-          >
-
-              <div className="font-medium">
-                {dest.name}
-              </div>
-
-              <div className="text-xs text-gray-500">
-                {dest.building} • {dest.floor}
-              </div>
-
-          </button>
-
-        ))
-
-      ) : (
-
-        <div className="p-4 text-gray-500">
-          No destination found
-        </div>
-
-      )}
-
-    </div>
-  )}
-
-</div>
-
-          {/* Buildings List */}
-          <div className="bg-white dark:bg-dark-card rounded-2xl border border-gray-200 dark:border-dark-border overflow-hidden">
-            <div className="p-3 border-b border-gray-200 dark:border-dark-border flex items-center justify-between">
-              <h3 className="font-semibold text-sm flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-primary-500" />
-                Buildings
-              </h3>
-              <span className="text-xs text-gray-400">{buildings?.length || 0}</span>
-            </div>
-            <div className="divide-y divide-gray-200 dark:divide-dark-border max-h-[400px] overflow-y-auto">
-              {buildings?.map((building) => (
-                <button
-                  key={building.id}
-                  onClick={() => handleBuildingSelect(building)}
-                  className={cn(
-                    'w-full text-left p-3 hover:bg-gray-50 dark:hover:bg-dark-border transition-colors',
-                    selectedBuilding?.id === building.id && 'bg-primary-50 dark:bg-primary-900/20'
-                  )}
-                >
-                  <p className="font-medium text-sm">{building.name}</p>
-                  <p className="text-xs text-gray-500">{building.floors.length} floors</p>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Floor Selection */}
           {selectedBuilding && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white dark:bg-dark-card rounded-2xl border border-gray-200 dark:border-dark-border p-3"
-            >
-              <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                <Layers className="w-4 h-4 text-primary-500" />
-                Select Floor
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {selectedBuilding.floors.map((floor) => (
-                  <button
-                    key={floor.id}
-                    onClick={() => setSelectedFloor(floor)}
-                    className={cn(
-                      'px-4 py-2 rounded-xl text-sm font-medium transition-colors border',
-                      selectedFloor?.id === floor.id
-                        ? 'bg-primary-500 text-white border-primary-500'
-                        : 'bg-gray-100 dark:bg-dark-border border-gray-200 dark:border-dark-border hover:bg-gray-200 dark:hover:bg-dark-card'
-                    )}
-                  >
-                    {floor.name}
-                  </button>
-                ))}
-              </div>
-            </motion.div>
+            <FloorSelector
+              buildingName={selectedBuilding.name}
+              floors={selectedBuilding.floors}
+              selectedFloor={selectedFloor}
+              onSelect={handleFloorSelect}
+            />
           )}
 
-          {/* Floor Facilities */}
-          {selectedFloor && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white dark:bg-dark-card rounded-2xl border border-gray-200 dark:border-dark-border p-3"
-            >
-              <button
-                onClick={() => setShowFacilities(!showFacilities)}
-                className="w-full flex items-center justify-between text-sm font-semibold"
-              >
-                <span>Facilities on {selectedFloor.name}</span>
-                <ChevronRight className={cn(
-                  'w-4 h-4 transition-transform',
-                  showFacilities && 'rotate-90'
-                )} />
-              </button>
-              {showFacilities && (
-                <motion.div
-                  initial={{ height: 0 }}
-                  animate={{ height: 'auto' }}
-                  className="mt-3 space-y-1 overflow-hidden"
-                >
-                  {selectedFloor.facilities.map((facility) => (
-                    <div key={facility.id} className="flex items-center gap-2 text-sm p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-border">
-                      <MapPin className="w-3.5 h-3.5 text-primary-500" />
-                      {facility.name}
-                      <span className="text-xs text-gray-400 ml-auto capitalize">{facility.type}</span>
-                    </div>
-                  ))}
-                </motion.div>
-              )}
-            </motion.div>
-          )}
+          {/* Search */}
+          <SearchDropdown
+            query={searchQuery}
+            onQueryChange={setSearchQuery}
+            destinations={destinations}
+            onSelect={handleDestinationSelect}
+          />
         </div>
 
-        {/* Right Panel - Map & Details */}
+        {/* Right Panel - Map */}
         <div className="lg:col-span-2 space-y-4">
-          {/* Indoor Map Placeholder */}
-          <div className="aspect-[4/3] rounded-2xl bg-gradient-to-br from-gray-100 to-gray-200 dark:from-dark-border dark:to-dark-card border border-gray-200 dark:border-dark-border relative overflow-hidden">
-            {/* Grid Pattern */}
-            <div className="absolute inset-0 opacity-10" style={{
-              backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'40\' height=\'40\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M20 0v40M0 20h40\' stroke=\'%236366f1\' stroke-width=\'0.5\'/%3E%3C/svg%3E")',
-            }} />
+          <IndoorMap
+            selectedDestination={destinationNode}
+            onSelectDestination={handleRoomSelect}
+            currentLocation={currentLocation}
+            route={route}
+          />
 
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-center">
-                <div className="w-20 h-20 rounded-2xl bg-white dark:bg-dark-card shadow-xl flex items-center justify-center mx-auto mb-4">
-                  <Building2 className="w-10 h-10 text-primary-500" />
-                </div>
-                <p className="font-semibold text-gray-600 dark:text-gray-400">
-                  {selectedBuilding ? `${selectedBuilding.name} - ${selectedFloor?.name || 'Select floor'}` : 'Select a building'}
-                </p>
-                <p className="text-sm text-gray-400 mt-1">
-                  {selectedDestination
-                    ? `Destination: ${selectedDestination.name}`
-                    : 'Indoor map will be displayed here'}
-                </p>
-                {!selectedBuilding && (
-                  <p className="text-xs text-gray-400 mt-2">
-                    Google Indoor Maps / OpenStreetMap / BLE / QR / NFC ready
-                  </p>
-                )}
-              </div>
+          {/* Current Location Info */}
+          <div className="p-4 rounded-2xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-900/30 flex items-center gap-3">
+            <div className="relative w-3 h-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75" />
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500" />
             </div>
-
-            {/* Room Labels */}
-            {selectedFloor && (
-              <div className="absolute top-4 left-4 space-y-2">
-                {selectedFloor.rooms.map((room) => (
-  <button
-    key={room}
-    onClick={() => {
-      const dest = destinations?.find(
-        (d) => d.name === room.replace("-", "")
-      );
-
-      if (dest) {
-        setSelectedDestination(dest);
-      }
-    }}
-    className={cn(
-      "block px-3 py-1.5 rounded-lg shadow-sm text-xs font-medium transition-colors",
-      selectedDestination?.name === room.replace("-", "")
-        ? "bg-primary-500 text-white"
-        : "bg-white/90 dark:bg-dark-card/90 hover:bg-primary-50"
-    )}
-  >
-    {room}
-  </button>
-))}
-              </div>
-            )}
+            <div>
+              <p className="text-sm font-semibold">Current Location</p>
+              <p className="text-xs text-gray-600 dark:text-gray-400">
+                {currentLocation.replace(/_/g, ' ')} • updating live from BLE / QR / NFC / Wi-Fi / CV
+              </p>
+            </div>
           </div>
 
           {/* Navigate Button */}
@@ -375,10 +223,14 @@ console.log("Filtered:", filteredDestinations);
                     {selectedDestination.building} - {selectedDestination.floor}
                   </p>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Footprints className="w-4 h-4 text-primary-500" />
-                  <span className="text-sm font-medium text-primary-600">2 min</span>
-                </div>
+                {totalDistance > 0 && (
+                  <div className="flex items-center gap-1">
+                    <Footprints className="w-4 h-4 text-primary-500" />
+                    <span className="text-sm font-medium text-primary-600">
+                      {totalDistance} units
+                    </span>
+                  </div>
+                )}
               </div>
               <div className="flex gap-2">
                 <button
@@ -388,15 +240,42 @@ console.log("Filtered:", filteredDestinations);
                   <Navigation className="w-4 h-4" />
                   Start Navigation
                 </button>
-                <button className="btn-secondary">
-                  Directions
-                </button>
               </div>
             </motion.div>
           )}
+
+          {/* Turn-by-turn Instructions */}
+          <AnimatePresence>
+            {instructions.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 20 }}
+                className="p-4 rounded-2xl bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border"
+              >
+                <h3 className="font-semibold text-sm flex items-center gap-2 mb-3">
+                  <Route className="w-4 h-4 text-primary-500" />
+                  Turn-by-turn Directions
+                </h3>
+                <ol className="space-y-2">
+                  {instructions.map((inst, i) => (
+                    <li key={i} className="flex items-start gap-3">
+                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 text-xs font-semibold flex items-center justify-center">
+                        {i + 1}
+                      </span>
+                      <p className="text-sm text-gray-700 dark:text-gray-200">{inst}</p>
+                    </li>
+                  ))}
+                </ol>
+                <div className="mt-4 flex items-center gap-2 text-sm font-medium text-accent-600 dark:text-accent-400">
+                  <CheckCircle className="w-4 h-4" />
+                  You have arrived at {selectedDestination?.name}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </div>
   );
 }
-

@@ -9,13 +9,13 @@ import {
   Users,
   Shield,
   Ambulance,
+  Bell,
   Share2,
   Loader2,
   CheckCircle,
   ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useVoice } from '@/contexts/VoiceContext';
 import toast from 'react-hot-toast';
 
 interface EmergencyContact {
@@ -33,7 +33,6 @@ const emergencyContacts: EmergencyContact[] = [
 ];
 
 export default function EmergencyPage() {
-  const { announce } = useVoice();
   const [isSOSActive, setIsSOSActive] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [selectedContact, setSelectedContact] = useState<string | null>(null);
@@ -41,29 +40,24 @@ export default function EmergencyPage() {
   const handleSOS = async () => {
     setIsSending(true);
     setIsSOSActive(true);
-    announce('Sending emergency SOS alert. Your location is being shared.', { priority: 'assertive', force: true });
 
     // Simulate emergency alert
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
     setIsSending(false);
-    announce('Emergency alert sent. Help is on the way.', { priority: 'assertive', force: true });
     toast.success('Emergency alert sent! Help is on the way.', { duration: 5000 });
   };
 
   const handleCancelSOS = () => {
     setIsSOSActive(false);
-    announce('Emergency alert cancelled.', { priority: 'assertive', force: true });
     toast.success('Emergency alert cancelled');
   };
 
   const handleCall = (phone: string) => {
-    announce(`Calling ${phone}.`, { priority: 'assertive', force: true });
     toast.success(`Calling ${phone}...`);
   };
 
   const handleShareLocation = () => {
-    announce('Location shared with emergency contacts.', { priority: 'assertive', force: true });
     toast.success('Location shared with emergency contacts');
   };
 
@@ -260,3 +254,4 @@ export default function EmergencyPage() {
     </div>
   );
 }
+
