@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useRef, useCallback, type ReactNode } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import { VoiceCommand, VoiceCommandIntent, VoiceAssistantState } from '@/types';
 import { useAccessibility } from './AccessibilityContext';
 import toast from 'react-hot-toast';
@@ -45,6 +46,8 @@ const commandResponses: Record<string, string> = {
 };
 
 export function VoiceProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
   const { preferences } = useAccessibility();
   const [state, setState] = useState<VoiceAssistantState>({
     isListening: false,
@@ -228,10 +231,19 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
 
   const handleNavigation = (command: VoiceCommand) => {
     const destination = command.entities['destination'] || command.entities['place'];
-    if (destination) {
-      toast.success(`Navigating to ${destination}`);
-      // Trigger navigation in map component via event
+    if (!destination) return;
+
+    toast.success(`Navigating to ${destination}`);
+
+    // Persist the destination so the Indoor Navigation page can pick it up
+    // even if it isn't mounted yet (avoids a race with the 'navigate' event).
+    sessionStorage.setItem('pendingVoiceDestination', destination);
+
+    if (pathname === '/dashboard/indoor') {
+      // Already there: the page's listener will pick this event up live.
       window.dispatchEvent(new CustomEvent('navigate', { detail: { destination } }));
+    } else {
+      router.push('/dashboard/indoor');
     }
   };
 
@@ -254,7 +266,10 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       'dashboard': '/dashboard',
       'map': '/dashboard/map',
       'maps': '/dashboard/map',
-      'navigation': '/dashboard/map',
+      'indoor': '/dashboard/indoor',
+      'indoor navigation': '/dashboard/indoor',
+      'indoor nav': '/dashboard/indoor',
+      'navigation': '/dashboard/indoor',
       'ocr': '/dashboard/ocr',
       'scanner': '/dashboard/ocr',
       'emergency': '/dashboard/emergency',
@@ -264,7 +279,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
 
     const route = routes[page];
     if (route) {
-      window.location.href = route;
+      router.push(route);
     } else {
       toast.error(`Couldn't find page: ${page}`);
     }

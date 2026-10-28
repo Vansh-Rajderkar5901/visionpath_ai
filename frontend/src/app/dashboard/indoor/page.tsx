@@ -12,6 +12,7 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import { navigationService } from '@/services/navigation';
 import { cn } from '@/lib/utils';
 import type { Building, Floor, NavigationDestination } from '@/types';
@@ -20,7 +21,7 @@ import { IndoorMap } from '@/components/navigation/IndoorMap';
 import { SearchDropdown } from '@/components/navigation/SearchDropdown';
 import { BuildingSelector } from '@/components/navigation/BuildingSelector';
 import { FloorSelector } from '@/components/navigation/FloorSelector';
-import { NODE_POSITIONS } from '@/components/navigation/indoorMapData';
+import { NODE_POSITIONS, SELECTABLE_ROOMS } from '@/components/navigation/indoorMapData';
 
 export default function IndoorNavigationPage() {
   const [selectedBuilding, setSelectedBuilding] = useState<Building | null>(null);
@@ -67,19 +68,41 @@ export default function IndoorNavigationPage() {
       handleNavigate: () => apiRef.current?.handleNavigate(),
     };
 
+    const findDestination = (destName: string) => {
+      const lower = destName.toLowerCase();
+      return (
+        destinations?.find((d) => d.name.toLowerCase() === lower) ||
+        destinations?.find((d) => d.name.toLowerCase().includes(lower) || lower.includes(d.name.toLowerCase()))
+      );
+    };
+
+    const goToDestination = (destName: string) => {
+      const match = findDestination(destName);
+      if (match) {
+        apiRef.current?.setSelectedDestination(match);
+        // navigate after state settles
+        setTimeout(() => apiRef.current?.handleNavigate(), 0);
+      } else {
+        toast.error(`Couldn't find destination: ${destName}`);
+      }
+    };
+
+    // Pick up a destination handed off by the voice assistant before this
+    // page finished mounting (avoids a race with the 'navigate' event below).
+    if (destinations && destinations.length > 0) {
+      const pending = sessionStorage.getItem('pendingVoiceDestination');
+      if (pending) {
+        sessionStorage.removeItem('pendingVoiceDestination');
+        goToDestination(pending);
+      }
+    }
+
     // Listen for the existing voice 'navigate' event dispatched by VoiceContext.
     const onNavigateEvent = (e: Event) => {
       const detail = (e as CustomEvent).detail as { destination?: string } | undefined;
       const destName = detail?.destination;
       if (!destName) return;
-      const match = destinations?.find(
-        (d) => d.name.toLowerCase() === destName.toLowerCase()
-      );
-      if (match) {
-        apiRef.current?.setSelectedDestination(match);
-        // navigate after state settles
-        setTimeout(() => apiRef.current?.handleNavigate(), 0);
-      }
+      goToDestination(destName);
     };
 
     window.addEventListener('navigate', onNavigateEvent);
@@ -88,6 +111,15 @@ export default function IndoorNavigationPage() {
       delete (window as unknown as Record<string, unknown>).__indoorNavigation;
     };
   }, [destinations]);
+
+  // Re-run pathfinding whenever the starting point changes while a
+  // destination is already selected (e.g. user updates "I am at...").
+  useEffect(() => {
+    if (selectedDestination) {
+      handleNavigate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentLocation]);
 
   // ---------- Handlers ----------
   const handleBuildingSelect = (building: Building) => {
@@ -197,14 +229,28 @@ export default function IndoorNavigationPage() {
 
           {/* Current Location Info */}
           <div className="p-4 rounded-2xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-900/30 flex items-center gap-3">
-            <div className="relative w-3 h-3">
+            <div className="relative w-3 h-3 flex-shrink-0">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75" />
               <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500" />
             </div>
-            <div>
-              <p className="text-sm font-semibold">Current Location</p>
-              <p className="text-xs text-gray-600 dark:text-gray-400">
-                {currentLocation.replace(/_/g, ' ')} • updating live from BLE / QR / NFC / Wi-Fi / CV
+            <div className="flex-1">
+              <label htmlFor="current-location" className="text-sm font-semibold block mb-1">
+                Current Location
+              </label>
+              <select
+                id="current-location"
+                value={currentLocation}
+                onChange={(e) => setCurrentLocation(e.target.value)}
+                className="w-full text-sm bg-transparent border border-green-200 dark:border-green-900/30 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                {SELECTABLE_ROOMS.map((room) => (
+                  <option key={room.navNode} value={room.navNode}>
+                    {room.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                Set manually for now • auto-detect via BLE / QR / NFC / Wi-Fi / CV coming soon
               </p>
             </div>
           </div>
