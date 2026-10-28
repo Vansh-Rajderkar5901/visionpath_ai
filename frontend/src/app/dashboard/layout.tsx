@@ -2,7 +2,6 @@
 
 import React from 'react';
 import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
-import { VoiceFloatingButton } from '@/components/voice/VoiceFloatingButton';
 
 export default function DashboardLayout({
   children,
@@ -17,7 +16,6 @@ export default function DashboardLayout({
           {children}
         </div>
       </main>
-      <VoiceFloatingButton />
     </div>
   );
 }
