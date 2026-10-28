@@ -10,6 +10,7 @@ import {
   Route,
   Locate,
   CheckCircle,
+  Volume2,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -17,6 +18,7 @@ import { navigationService } from '@/services/navigation';
 import { cn } from '@/lib/utils';
 import type { Building, Floor, NavigationDestination } from '@/types';
 import { navigate } from '@/navigation/navigationService';
+import { playInstructionAudio } from '@/navigation/audioCues';
 import { IndoorMap } from '@/components/navigation/IndoorMap';
 import { SearchDropdown } from '@/components/navigation/SearchDropdown';
 import { BuildingSelector } from '@/components/navigation/BuildingSelector';
@@ -35,6 +37,8 @@ export default function IndoorNavigationPage() {
   const [route, setRoute] = useState<string[]>([]);
   const [instructions, setInstructions] = useState<string[]>([]);
   const [totalDistance, setTotalDistance] = useState(0);
+  const [playingStep, setPlayingStep] = useState<number | null>(null);
+  const audioControllerRef = useRef<{ stop: () => void } | null>(null);
 
   const { data: buildings } = useQuery({
     queryKey: ['buildings'],
@@ -120,6 +124,19 @@ export default function IndoorNavigationPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentLocation]);
+
+  // Play turn-by-turn audio cues whenever a new route is computed.
+  const playAudioGuidance = useCallback(() => {
+    audioControllerRef.current?.stop();
+    if (instructions.length === 0) return;
+    audioControllerRef.current = playInstructionAudio(instructions, setPlayingStep);
+  }, [instructions]);
+
+  useEffect(() => {
+    playAudioGuidance();
+    return () => audioControllerRef.current?.stop();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [instructions]);
 
   // ---------- Handlers ----------
   const handleBuildingSelect = (building: Building) => {
@@ -299,13 +316,29 @@ export default function IndoorNavigationPage() {
                 exit={{ opacity: 0, y: 20 }}
                 className="p-4 rounded-2xl bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border"
               >
-                <h3 className="font-semibold text-sm flex items-center gap-2 mb-3">
-                  <Route className="w-4 h-4 text-primary-500" />
-                  Turn-by-turn Directions
+                <h3 className="font-semibold text-sm flex items-center gap-2 mb-3 justify-between">
+                  <span className="flex items-center gap-2">
+                    <Route className="w-4 h-4 text-primary-500" />
+                    Turn-by-turn Directions
+                  </span>
+                  <button
+                    onClick={playAudioGuidance}
+                    className="flex items-center gap-1 text-xs font-medium text-primary-600 dark:text-primary-400 hover:underline"
+                    aria-label="Replay audio guidance"
+                  >
+                    <Volume2 className="w-3.5 h-3.5" />
+                    Replay audio
+                  </button>
                 </h3>
                 <ol className="space-y-2">
                   {instructions.map((inst, i) => (
-                    <li key={i} className="flex items-start gap-3">
+                    <li
+                      key={i}
+                      className={cn(
+                        'flex items-start gap-3 rounded-lg px-2 py-1 -mx-2 transition-colors',
+                        playingStep === i && 'bg-primary-50 dark:bg-primary-900/20'
+                      )}
+                    >
                       <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 text-xs font-semibold flex items-center justify-center">
                         {i + 1}
                       </span>
