@@ -72,11 +72,16 @@ export default function IndoorNavigationPage() {
       handleNavigate: () => apiRef.current?.handleNavigate(),
     };
 
+    // Stored destination names have no spaces/dashes (e.g. "BS19",
+    // "Seminar_Hall"), but spoken/typed input commonly does ("BS-19",
+    // "Seminar Hall"), so compare with separators stripped.
+    const normalize = (s: string) => s.toLowerCase().replace(/[\s_-]+/g, '');
+
     const findDestination = (destName: string) => {
-      const lower = destName.toLowerCase();
+      const target = normalize(destName);
       return (
-        destinations?.find((d) => d.name.toLowerCase() === lower) ||
-        destinations?.find((d) => d.name.toLowerCase().includes(lower) || lower.includes(d.name.toLowerCase()))
+        destinations?.find((d) => normalize(d.name) === target) ||
+        destinations?.find((d) => normalize(d.name).includes(target) || target.includes(normalize(d.name)))
       );
     };
 

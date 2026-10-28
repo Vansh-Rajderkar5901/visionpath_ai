@@ -24,13 +24,13 @@ import { useAccessibility } from '@/contexts/AccessibilityContext';
 import { cn } from '@/lib/utils';
 
 const exampleCommands = [
-  { command: 'Take me to Lab 204', description: 'Navigate to any room' },
-  { command: 'Guide me to Principal Office', description: 'Get directions' },
+  { command: 'Take me to BS-19', description: 'Navigate to any room' },
+  { command: 'Guide me to Cyber Security', description: 'Get directions' },
   { command: 'Read this notice', description: 'OCR text reading' },
-  { command: 'Where is the nearest washroom?', description: 'Find facilities' },
+  { command: 'Where is the Toilet?', description: 'Find facilities' },
   { command: 'Call security', description: 'Emergency contacts' },
   { command: 'Open profile', description: 'Navigate pages' },
-  { command: 'Navigate to Library', description: 'Indoor navigation' },
+  { command: 'Navigate to Seminar Hall', description: 'Indoor navigation' },
   { command: 'Help', description: 'Available commands' },
 ];
 
@@ -45,6 +45,7 @@ export default function VoicePage() {
     stopSpeaking,
     continuousMode,
     toggleContinuousMode,
+    processCommand,
   } = useVoice();
   const { preferences, updatePreferences } = useAccessibility();
   const [showCommands, setShowCommands] = useState(true);
@@ -200,12 +201,7 @@ export default function VoicePage() {
                 {exampleCommands.map((cmd) => (
                   <button
                     key={cmd.command}
-                    onClick={() => {
-                      // You could trigger processing of this command
-                      if (window.SpeechRecognition || window.webkitSpeechRecognition) {
-                        // Use the voice context to process
-                      }
-                    }}
+                    onClick={() => processCommand(cmd.command)}
                     className="text-left p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-dark-border transition-colors"
                   >
                     <p className="font-medium text-sm">&ldquo;{cmd.command}&rdquo;</p>
